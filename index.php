@@ -1,155 +1,143 @@
 <?php
 /**
- * File Path: create-decision.php
- * Description: Decision Creator that allows for BOTH AI-generated and Manual option entry.
+ * File Path: index.php
+ * Description: Redesigned landing page with Debug Mode enabled to catch blank page errors.
  */
+
+// TEMPORARY: Enable error reporting to debug the "blank page" issue
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Ensure this path is correct based on your folder structure
+if (!file_exists(__DIR__ . '/config.php')) {
+    die("Fatal Error: config.php not found at " . __DIR__ . "/config.php");
+}
+
 require_once __DIR__ . '/config.php';
-requireLogin();
+
+$isLoggedIn = isLoggedIn();
+$user = $isLoggedIn ? getCurrentUser() : null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>New Strategic Decision | DecisionVault</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script src="[https://unpkg.com/react@18/umd/react.production.min.js](https://unpkg.com/react@18/umd/react.production.min.js)"></script>
-    <script src="[https://unpkg.com/react-dom@18/umd/react-dom.production.min.js](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)"></script>
-    <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecisionVault - Build the Unfailable with AI Strategy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+        .gradient-text {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .feature-card { transition: all 0.3s ease; }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(79, 70, 229, 0.15); }
+        .stat-number { font-size: 3.5rem; font-weight: 900; line-height: 1; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+        .floating { animation: float 6s ease-in-out infinite; }
+    </style>
 </head>
-<body class="bg-gray-50 p-8">
-    <div id="root"></div>
+<body class="bg-white">
+    
+    <!-- Navigation -->
+    <nav class="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">D</span>
+                    </div>
+                    <span class="text-2xl font-bold gradient-text">DecisionVault</span>
+                </div>
+                
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#features" class="text-gray-600 hover:text-indigo-600 font-medium transition-colors">Features</a>
+                    <a href="#vision" class="text-gray-600 hover:text-indigo-600 font-medium transition-colors">Vision</a>
+                    <?php if ($isLoggedIn): ?>
+                        <a href="dashboard.php" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors">Dashboard</a>
+                    <?php else: ?>
+                        <a href="auth/google.php" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors">Enter Vault</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-
-        function App() {
-            const [title, setTitle] = useState('');
-            const [problem, setProblem] = useState('');
-            const [manualOptions, setManualOptions] = useState(['']);
-            const [aiSuggestions, setAiSuggestions] = useState([]);
-            const [isLoading, setIsLoading] = useState(false);
-
-            // Fetch AI Suggestions as the user types [PROACTIVE INTELLIGENCE]
-            useEffect(() => {
-                const timer = setTimeout(async () => {
-                    if (title.length > 5) {
-                        setIsLoading(true);
-                        try {
-                            // Call your proactive intel API
-                            const res = await fetch(`/api/ai-strategy.php`, {
-                                method: 'POST',
-                                body: JSON.stringify({ title, problem_statement: problem })
-                            });
-                            const data = await res.json();
-                            setAiSuggestions(data.external?.suggested_options || []);
-                        } catch (e) {
-                            console.error("AI Fetch Failed");
-                        }
-                        setIsLoading(false);
-                    }
-                }, 1000);
-                return () => clearTimeout(timer);
-            }, [title, problem]);
-
-            const addManualOption = () => setManualOptions([...manualOptions, '']);
-            
-            const updateManualOption = (index, val) => {
-                const newOpts = [...manualOptions];
-                newOpts[index] = val;
-                setManualOptions(newOpts);
-            };
-
-            const adoptAiOption = (optName) => {
-                setManualOptions([...manualOptions, optName]);
-            };
-
-            return (
-                <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-12">
-                    <div className="lg:col-span-2">
-                        <header class="mb-10">
-                            <h1 className="text-4xl font-black text-gray-900">New Strategic Decision</h1>
-                            <p class="text-gray-500">Document the logic. Avoid the failure patterns.</p>
-                        </header>
-
-                        <div className="space-y-8 bg-white p-10 rounded-3xl border shadow-sm">
-                            <section>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Decision Context</label>
-                                <input
-                                    className="w-full p-4 text-xl border-2 rounded-2xl outline-indigo-600 mb-4"
-                                    placeholder="e.g. Hiring VP of Sales"
-                                    value={title}
-                                    onChange={e => setTitle(e.target.value)}
-                                />
-                                <textarea
-                                    className="w-full p-4 border-2 rounded-2xl outline-indigo-600 h-32"
-                                    placeholder="Describe the core problem this decision solves..."
-                                    value={problem}
-                                    onChange={e => setProblem(e.target.value)}
-                                ></textarea>
-                            </section>
-
-                            <section>
-                                <div className="flex justify-between items-end mb-4">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Options Under Consideration</label>
-                                    <button onClick={addManualOption} className="text-indigo-600 font-bold text-sm">+ Add Custom Option</button>
-                                </div>
-                                <div className="space-y-3">
-                                    {manualOptions.map((opt, i) => (
-                                        <input
-                                            key={i}
-                                            className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl transition-all"
-                                            placeholder={`Option ${i+1}`}
-                                            value={opt}
-                                            onChange={e => updateManualOption(i, e.target.value)}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-
-                            <button className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-indigo-100">
-                                Document Strategic Logic
-                            </button>
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-block mb-4 px-4 py-2 bg-indigo-100 rounded-full">
+                        <span class="text-indigo-700 font-semibold text-sm">🚀 Strategic Intelligence</span>
+                    </div>
+                    <h1 class="text-5xl lg:text-7xl font-black text-gray-900 leading-[0.9] mb-8">
+                        BUILD THE<br/>
+                        <span class="gradient-text">UNFAILABLE.</span>
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-10 leading-relaxed">
+                        Stop guessing. DecisionVault uses <strong>2,000+ historical failure patterns</strong> to stress-test your strategy and recommend the path to success.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <a href="auth/google.php" class="inline-flex items-center justify-center px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg">
+                            Get Started Free
+                        </a>
+                        <a href="onboarding/create-organization.php" class="inline-flex items-center justify-center px-8 py-4 bg-white text-indigo-600 rounded-xl font-bold text-lg border-2 border-indigo-600 hover:bg-indigo-50 transition-all">
+                            Build Team Org
+                        </a>
+                    </div>
+                </div>
+                <div class="relative hidden lg:block">
+                    <div class="floating bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-gray-900">🤖 AI Recommendation</h3>
+                            <span class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold">87% CONFIDENCE</span>
+                        </div>
+                        <div class="bg-indigo-50 rounded-xl p-4 mb-4">
+                            <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Safe Path</div>
+                            <div class="font-bold">Promote from within</div>
+                            <p class="text-xs text-indigo-600 mt-1">78% success rate in your industry.</p>
+                        </div>
+                        <div class="bg-red-50 rounded-xl p-4">
+                            <div class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Danger Zone</div>
+                            <div class="font-bold text-gray-900">External Senior Hire</div>
+                            <p class="text-xs text-red-600 mt-1">23% of startups failed at this stage due to culture mismatch.</p>
                         </div>
                     </div>
-
-                    <aside className="space-y-6">
-                        <h3 className="font-black text-gray-400 uppercase text-xs tracking-widest">AI Intelligence Moat</h3>
-                        
-                        {isLoading && (
-                            <div className="p-6 bg-white border rounded-3xl animate-pulse">
-                                <div className="h-4 bg-gray-100 rounded w-3/4 mb-4"></div>
-                                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-                            </div>
-                        )}
-
-                        {!isLoading && aiSuggestions.length > 0 && (
-                            <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl">
-                                <h4 className="font-bold mb-4 flex items-center gap-2">🧠 AI Suggested Options</h4>
-                                <div className="space-y-3">
-                                    {aiSuggestions.map((s, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => adoptAiOption(s.option.name)}
-                                            className="w-full p-3 bg-white/10 hover:bg-white/20 rounded-xl text-left text-sm transition"
-                                        >
-                                            + {s.option.name}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="text-[10px] mt-4 opacity-60">Suggestions based on 2,000+ historical failures.</p>
-                            </div>
-                        )}
-
-                        <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl text-amber-800">
-                            <h4 className="font-bold text-sm mb-2">💡 Pro Tip</h4>
-                            <p className="text-xs leading-relaxed">Most Series A startups fail because they hire for scale before Product-Market Fit. If you're hiring, ensure PMF is validated first.</p>
-                        </div>
-                    </aside>
                 </div>
-            );
-        }
+            </div>
+        </div>
+    </section>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    <!-- Stats -->
+    <section class="py-16 bg-white border-y border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="stat-number gradient-text">2,000+</div>
+                    <div class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">Failure Patterns</div>
+                </div>
+                <div>
+                    <div class="stat-number gradient-text">81%</div>
+                    <div class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">Accuracy Rate</div>
+                </div>
+                <div>
+                    <div class="stat-number gradient-text">ROI</div>
+                    <div class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">Guaranteed</div>
+                </div>
+                <div>
+                    <div class="stat-number gradient-text">SECURE</div>
+                    <div class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">Audit Trails</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
 </body>
 </html>

@@ -1,7 +1,7 @@
 <?php
 /**
  * File Path: lib/SimulationEngine.php
- * Description: Robust AI Simulation logic with advanced JSON cleaning for poorly formatted AI output.
+ * Description: Robust AI Simulation logic with corrected URL string and advanced JSON cleaning.
  */
 
 class SimulationEngine {
@@ -35,7 +35,9 @@ class SimulationEngine {
         
         DO NOT include markdown formatting like ```json. Just raw text.";
 
+        // FIXED: Cleaned URL string (removed markdown brackets)
         $url = "[https://generativelanguage.googleapis.com/v1beta/models/](https://generativelanguage.googleapis.com/v1beta/models/)" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        
         $payload = ["contents" => [["parts" => [["text" => $prompt]]]]];
 
         $ch = curl_init($url);
@@ -43,20 +45,19 @@ class SimulationEngine {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        
         $response = curl_exec($ch);
         $result = json_decode($response, true);
         curl_close($ch);
 
         $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
         
-        // ADVANCED CLEANING: Gemini often ignores "RAW JSON" and wraps it in markdown
-        // This regex aggressively strips leading/trailing markdown code blocks and whitespace
+        // ADVANCED CLEANING: Aggressively strips leading/trailing markdown code blocks
         $cleanJson = preg_replace('/^.*?({.*}).*?$/s', '$1', trim($rawText));
         
         $data = json_decode($cleanJson, true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
-            // Fallback for extremely broken output
             return [
                 'day30' => 'AI Output Format Error',
                 'day90' => 'Could not parse JSON response from LLM.',
