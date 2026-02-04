@@ -1,81 +1,155 @@
 <?php
 /**
- * File Path: index.php
- * Description: The premium, dark-mode landing page for the DecisionVault platform.
+ * File Path: create-decision.php
+ * Description: Decision Creator that allows for BOTH AI-generated and Manual option entry.
  */
 require_once __DIR__ . '/config.php';
+requireLogin();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DecisionVault | Build the Unfailable</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
-        .hero-glow { background: radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.15) 0%, transparent 80%); }
-        .text-gradient { background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    </style>
+    <title>New Strategic Decision | DecisionVault</title>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="[https://unpkg.com/react@18/umd/react.production.min.js](https://unpkg.com/react@18/umd/react.production.min.js)"></script>
+    <script src="[https://unpkg.com/react-dom@18/umd/react-dom.production.min.js](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)"></script>
+    <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
 </head>
-<body class="hero-glow min-h-screen flex flex-col items-center justify-center p-6">
+<body class="bg-gray-50 p-8">
+    <div id="root"></div>
 
-    <div class="max-w-5xl text-center relative z-10">
-        <!-- Badge -->
-        <div class="mb-12 inline-block px-4 py-1.5 border border-indigo-500/30 bg-indigo-500/5 rounded-full text-indigo-400 text-[10px] font-black tracking-[0.2em] uppercase">
-            Strategic Intelligence for the Next Unicorn
-        </div>
-        
-        <!-- Hero Headline -->
-        <h1 class="text-7xl md:text-9xl font-black mb-10 tracking-tighter leading-[0.9]">
-            BUILD THE <br/>
-            <span class="text-gradient">UNFAILABLE.</span>
-        </h1>
-        
-        <!-- Subheadline -->
-        <p class="text-lg md:text-2xl text-slate-400 mb-14 max-w-2xl mx-auto leading-relaxed font-medium">
-            Stop making high-stakes decisions in a vacuum. DecisionVault uses 2,000+ historical failure patterns to stress-test your strategy before you ship.
-        </p>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-        <!-- CTA Cluster -->
-        <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <a href="/auth/google.php" class="group bg-white text-black px-12 py-6 rounded-3xl font-black text-2xl hover:scale-105 transition-all shadow-2xl shadow-indigo-500/20 flex items-center gap-3">
-                Enter Your Vault
-                <span class="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
-            </a>
+        function App() {
+            const [title, setTitle] = useState('');
+            const [problem, setProblem] = useState('');
+            const [manualOptions, setManualOptions] = useState(['']);
+            const [aiSuggestions, setAiSuggestions] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+
+            // Fetch AI Suggestions as the user types [PROACTIVE INTELLIGENCE]
+            useEffect(() => {
+                const timer = setTimeout(async () => {
+                    if (title.length > 5) {
+                        setIsLoading(true);
+                        try {
+                            // Call your proactive intel API
+                            const res = await fetch(`/api/ai-strategy.php`, {
+                                method: 'POST',
+                                body: JSON.stringify({ title, problem_statement: problem })
+                            });
+                            const data = await res.json();
+                            setAiSuggestions(data.external?.suggested_options || []);
+                        } catch (e) {
+                            console.error("AI Fetch Failed");
+                        }
+                        setIsLoading(false);
+                    }
+                }, 1000);
+                return () => clearTimeout(timer);
+            }, [title, problem]);
+
+            const addManualOption = () => setManualOptions([...manualOptions, '']);
             
-            <a href="/onboarding/create-organization.php" class="px-10 py-5 rounded-3xl font-bold text-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-                Business Onboarding
-            </a>
-        </div>
+            const updateManualOption = (index, val) => {
+                const newOpts = [...manualOptions];
+                newOpts[index] = val;
+                setManualOptions(newOpts);
+            };
 
-        <!-- Social Proof / Tickers -->
-        <div class="mt-32 pt-12 border-t border-slate-900 grid grid-cols-2 md:grid-cols-4 gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
-            <div>
-                <div class="text-2xl font-black mb-1">2,000+</div>
-                <div class="text-[10px] uppercase font-black tracking-widest text-slate-500">Failure Modes</div>
-            </div>
-            <div>
-                <div class="text-2xl font-black mb-1">81%</div>
-                <div class="text-[10px] uppercase font-black tracking-widest text-slate-500">Avg. Accuracy</div>
-            </div>
-            <div>
-                <div class="text-2xl font-black mb-1">Zero</div>
-                <div class="text-[10px] uppercase font-black tracking-widest text-slate-500">Blind Spots</div>
-            </div>
-            <div>
-                <div class="text-2xl font-black mb-1">SECURE</div>
-                <div class="text-[10px] uppercase font-black tracking-widest text-slate-500">Audit Trail</div>
-            </div>
-        </div>
-    </div>
+            const adoptAiOption = (optName) => {
+                setManualOptions([...manualOptions, optName]);
+            };
 
-    <!-- Background Elements -->
-    <div class="absolute top-0 left-0 w-full h-full pointer-events-none -z-10">
-        <div class="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/10 blur-[120px] rounded-full"></div>
-        <div class="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full"></div>
-    </div>
+            return (
+                <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-12">
+                    <div className="lg:col-span-2">
+                        <header class="mb-10">
+                            <h1 className="text-4xl font-black text-gray-900">New Strategic Decision</h1>
+                            <p class="text-gray-500">Document the logic. Avoid the failure patterns.</p>
+                        </header>
 
+                        <div className="space-y-8 bg-white p-10 rounded-3xl border shadow-sm">
+                            <section>
+                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Decision Context</label>
+                                <input
+                                    className="w-full p-4 text-xl border-2 rounded-2xl outline-indigo-600 mb-4"
+                                    placeholder="e.g. Hiring VP of Sales"
+                                    value={title}
+                                    onChange={e => setTitle(e.target.value)}
+                                />
+                                <textarea
+                                    className="w-full p-4 border-2 rounded-2xl outline-indigo-600 h-32"
+                                    placeholder="Describe the core problem this decision solves..."
+                                    value={problem}
+                                    onChange={e => setProblem(e.target.value)}
+                                ></textarea>
+                            </section>
+
+                            <section>
+                                <div className="flex justify-between items-end mb-4">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Options Under Consideration</label>
+                                    <button onClick={addManualOption} className="text-indigo-600 font-bold text-sm">+ Add Custom Option</button>
+                                </div>
+                                <div className="space-y-3">
+                                    {manualOptions.map((opt, i) => (
+                                        <input
+                                            key={i}
+                                            className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl transition-all"
+                                            placeholder={`Option ${i+1}`}
+                                            value={opt}
+                                            onChange={e => updateManualOption(i, e.target.value)}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+
+                            <button className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-indigo-100">
+                                Document Strategic Logic
+                            </button>
+                        </div>
+                    </div>
+
+                    <aside className="space-y-6">
+                        <h3 className="font-black text-gray-400 uppercase text-xs tracking-widest">AI Intelligence Moat</h3>
+                        
+                        {isLoading && (
+                            <div className="p-6 bg-white border rounded-3xl animate-pulse">
+                                <div className="h-4 bg-gray-100 rounded w-3/4 mb-4"></div>
+                                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
+                            </div>
+                        )}
+
+                        {!isLoading && aiSuggestions.length > 0 && (
+                            <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl">
+                                <h4 className="font-bold mb-4 flex items-center gap-2">🧠 AI Suggested Options</h4>
+                                <div className="space-y-3">
+                                    {aiSuggestions.map((s, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => adoptAiOption(s.option.name)}
+                                            className="w-full p-3 bg-white/10 hover:bg-white/20 rounded-xl text-left text-sm transition"
+                                        >
+                                            + {s.option.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] mt-4 opacity-60">Suggestions based on 2,000+ historical failures.</p>
+                            </div>
+                        )}
+
+                        <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl text-amber-800">
+                            <h4 className="font-bold text-sm mb-2">💡 Pro Tip</h4>
+                            <p className="text-xs leading-relaxed">Most Series A startups fail because they hire for scale before Product-Market Fit. If you're hiring, ensure PMF is validated first.</p>
+                        </div>
+                    </aside>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
