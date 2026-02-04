@@ -1,78 +1,62 @@
 <?php
 /**
- * DecisionVault - Auth Callback
- * Processes Google OAuth response and initializes the user session.
+ * File Path: auth/callback.php
+ * Description: Receives Google OAuth code and handles user login/registration.
  */
 
 require_once __DIR__ . '/../config.php';
 
-// 1. Basic OAuth Validation
 if (!isset($_GET['code'])) {
-    die('Authorization failed. No code received from Google.');
+    die("Authorization failed: No code returned.");
 }
 
-// 2. Exchange Code for Access Token
-$tokenUrl = 'https://oauth2.googleapis.com/token';
-$tokenParams = [
-    'code'          => $_GET['code'],
-    'client_id'     => GOOGLE_CLIENT_ID,
-    'client_secret' => GOOGLE_CLIENT_SECRET,
-    'redirect_uri'  => GOOGLE_REDIRECT_URI,
-    'grant_type'    => 'authorization_code'
-];
-
-$ch = curl_init($tokenUrl);
+// 1. Exchange authorization code for access token
+$ch = curl_init('https://oauth2.googleapis.com/token');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($tokenParams));
-$tokenData = json_decode(curl_exec($ch), true);
-curl_close($ch);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+    'code' => $_GET['code'],
+    'client_id' => GOOGLE_CLIENT_ID,
+    'client_secret' => GOOGLE_CLIENT_SECRET,
+    'redirect_uri' => GOOGLE_REDIRECT_URI,
+    'grant_type' => 'authorization_code'
+]));
+$tokenResponse = curl_exec($ch);
+$tokenData = json_decode($tokenResponse, true);
 
-if (!isset($tokenData['access_token'])) {
-    die('Failed to obtain access token.');
+if (isset($tokenData['error'])) {
+    die("Error exchanging code: " . $tokenData['error_description']);
 }
 
-// 3. Get User Profile from Google
-$userUrl = 'https://www.googleapis.com/oauth2/v2/userinfo';
-$ch = curl_init($userUrl);
+// 2. Fetch User Profile from Google
+$ch = curl_init('https://www.googleapis.com/oauth2/v2/userinfo');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $tokenData['access_token']]);
-$googleProfile = json_decode(curl_exec($ch), true);
-curl_close($ch);
+$profile = json_decode(curl_exec($ch), true);
 
-if (!isset($googleProfile['id'])) {
-    die('Failed to fetch user profile.');
-}
-
-// 4. Initialize/Update User in Database
 $pdo = getDbConnection();
-$email = $googleProfile['email'];
-
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-$stmt->execute([$email]);
+$stmt->execute([$profile['email']]);
 $user = $stmt->fetch();
 
 if (!$user) {
-    // 1. Create User
+    // Register New User
     $stmt = $pdo->prepare("INSERT INTO users (email, name, google_id, avatar_url) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$email, $googleProfile['name'], $googleProfile['id'], $googleProfile['picture']]);
+    $stmt->execute([$profile['email'], $profile['name'], $profile['id'], $profile['picture']]);
     $userId = $pdo->lastInsertId();
     
-    // 2. Auto-Create Personal Vault (Slug based on unique ID to prevent "taken" error)
-    $orgSlug = 'vault-' . $userId . '-' . substr(md5(uniqid()), 0, 4);
+    // Auto-create their private "Vault" (Personal Organization)
+    $slug = 'vault-' . $userId . '-' . substr(md5(uniqid()), 0, 4);
     $stmt = $pdo->prepare("INSERT INTO organizations (name, slug, type, owner_id) VALUES (?, ?, 'personal', ?)");
-    $stmt->execute([$googleProfile['name'] . "'s Vault", $orgSlug, $userId]);
+    $stmt->execute([$profile['name'] . "'s Vault", $slug, $userId]);
     $orgId = $pdo->lastInsertId();
     
-    // 3. Add as Owner
-    $stmt = $pdo->prepare("INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, 'owner')");
-    $stmt->execute([$orgId, $userId]);
+    // Grant Ownership
+    $pdo->prepare("INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, 'owner')")->execute([$orgId, $userId]);
 } else {
     $userId = $user['id'];
-    // Auto-fetch their primary org for this session
-    $stmt = $pdo->prepare("SELECT organization_id FROM organization_members WHERE user_id = ? LIMIT 1");
-    $stmt->execute([$userId]);
-    $orgId = $stmt->fetchColumn();
+    // Find the user's primary organization
+    $orgId = $pdo->query("SELECT organization_id FROM organization_members WHERE user_id = $userId LIMIT 1")->fetchColumn();
 }
 
 $_SESSION['user_id'] = $userId;
