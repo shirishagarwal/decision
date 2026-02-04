@@ -1,149 +1,180 @@
 <?php
 /**
  * File Path: create-decision.php
- * Description: Decision Creator that allows for BOTH AI-generated and Manual option entry.
+ * Description: Hybrid manual + AI decision flow as requested.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
+
+$user = getCurrentUser();
+$orgId = $_SESSION['current_org_id'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>New Strategic Decision | DecisionVault</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script src="[https://unpkg.com/react@18/umd/react.production.min.js](https://unpkg.com/react@18/umd/react.production.min.js)"></script>
-    <script src="[https://unpkg.com/react-dom@18/umd/react-dom.production.min.js](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)"></script>
-    <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
+    <title>New Strategic Decision | <?php echo APP_NAME; ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-gray-50 p-8">
+<body class="bg-gray-50 min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
 
         function App() {
+            const [step, setStep] = useState(1); // 1: Context, 2: Options
             const [title, setTitle] = useState('');
             const [problem, setProblem] = useState('');
-            const [manualOptions, setManualOptions] = useState(['']);
+            const [options, setOptions] = useState([
+                { id: 1, name: '', description: '', pros: '', cons: '' }
+            ]);
             const [aiSuggestions, setAiSuggestions] = useState([]);
-            const [isLoading, setIsLoading] = useState(false);
+            const [isAiLoading, setIsAiLoading] = useState(false);
 
-            // Fetch AI Suggestions as the user types [PROACTIVE INTELLIGENCE]
-            useEffect(() => {
-                const timer = setTimeout(async () => {
-                    if (title.length > 5) {
-                        setIsLoading(true);
-                        try {
-                            // Call your proactive intel API
-                            const res = await fetch(`/api/ai-strategy.php`, {
-                                method: 'POST',
-                                body: JSON.stringify({ title, problem_statement: problem })
-                            });
-                            const data = await res.json();
-                            setAiSuggestions(data.external?.suggested_options || []);
-                        } catch (e) {
-                            console.error("AI Fetch Failed");
-                        }
-                        setIsLoading(false);
-                    }
-                }, 1000);
-                return () => clearTimeout(timer);
-            }, [title, problem]);
-
-            const addManualOption = () => setManualOptions([...manualOptions, '']);
-            
-            const updateManualOption = (index, val) => {
-                const newOpts = [...manualOptions];
-                newOpts[index] = val;
-                setManualOptions(newOpts);
+            // Fetch AI Suggestions based on Title/Problem
+            const fetchSuggestions = async () => {
+                if (!title) return;
+                setIsAiLoading(true);
+                try {
+                    const res = await fetch('/api/ai-chat.php', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'generate_options',
+                            title: title,
+                            problem: problem
+                        })
+                    });
+                    const data = await res.json();
+                    setAiSuggestions(data.suggestions || []);
+                } catch (e) { console.error(e); }
+                setIsAiLoading(false);
             };
 
-            const adoptAiOption = (optName) => {
-                setManualOptions([...manualOptions, optName]);
+            const addOption = (initialData = {}) => {
+                setOptions([...options, {
+                    id: Date.now(),
+                    name: initialData.name || '',
+                    description: initialData.description || '',
+                    pros: initialData.pros || '',
+                    cons: initialData.cons || ''
+                }]);
+            };
+
+            const updateOption = (id, field, value) => {
+                setOptions(options.map(o => o.id === id ? { ...o, [field]: value } : o));
             };
 
             return (
-                <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-12">
-                    <div className="lg:col-span-2">
-                        <header class="mb-10">
-                            <h1 className="text-4xl font-black text-gray-900">New Strategic Decision</h1>
-                            <p class="text-gray-500">Document the logic. Avoid the failure patterns.</p>
-                        </header>
+                <div className="max-w-6xl mx-auto py-12 px-6">
+                    <header class="mb-12">
+                        <h1 class="text-4xl font-black text-gray-900">New Strategic Decision</h1>
+                        <p class="text-gray-500">Document the path. Use AI to avoid common failure modes.</p>
+                    </header>
 
-                        <div className="space-y-8 bg-white p-10 rounded-3xl border shadow-sm">
-                            <section>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Decision Context</label>
-                                <input
-                                    className="w-full p-4 text-xl border-2 rounded-2xl outline-indigo-600 mb-4"
-                                    placeholder="e.g. Hiring VP of Sales"
-                                    value={title}
-                                    onChange={e => setTitle(e.target.value)}
-                                />
-                                <textarea
-                                    className="w-full p-4 border-2 rounded-2xl outline-indigo-600 h-32"
-                                    placeholder="Describe the core problem this decision solves..."
-                                    value={problem}
-                                    onChange={e => setProblem(e.target.value)}
-                                ></textarea>
-                            </section>
-
-                            <section>
-                                <div className="flex justify-between items-end mb-4">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Options Under Consideration</label>
-                                    <button onClick={addManualOption} className="text-indigo-600 font-bold text-sm">+ Add Custom Option</button>
-                                </div>
-                                <div className="space-y-3">
-                                    {manualOptions.map((opt, i) => (
+                    <div className="grid lg:grid-cols-3 gap-12">
+                        <div className="lg:col-span-2 space-y-8">
+                            {/* Step 1: CONTEXT */}
+                            <div className={`bg-white p-10 rounded-3xl border shadow-sm transition-opacity ${step !== 1 ? 'opacity-40 pointer-events-none' : ''}`}>
+                                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">1. Strategic Context</h2>
+                                <div class="space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Decision Title</label>
                                         <input
-                                            key={i}
-                                            className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl transition-all"
-                                            placeholder={`Option ${i+1}`}
-                                            value={opt}
-                                            onChange={e => updateManualOption(i, e.target.value)}
+                                            class="w-full p-4 border-2 rounded-2xl outline-indigo-600 bg-gray-50 focus:bg-white transition-all"
+                                            placeholder="e.g. Hire Head of Growth"
+                                            value={title} onChange={e => setTitle(e.target.value)}
                                         />
-                                    ))}
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">The Core Problem</label>
+                                        <textarea
+                                            class="w-full p-4 border-2 rounded-2xl outline-indigo-600 bg-gray-50 focus:bg-white transition-all h-32"
+                                            placeholder="What is the root cause of this decision?"
+                                            value={problem} onChange={e => setProblem(e.target.value)}
+                                        ></textarea>
+                                    </div>
+                                    <button onClick={() => { setStep(2); fetchSuggestions(); }} class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100">
+                                        Next: Define Options →
+                                    </button>
                                 </div>
-                            </section>
+                            </div>
 
-                            <button className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-indigo-100">
-                                Document Strategic Logic
-                            </button>
+                            {/* Step 2: OPTIONS */}
+                            <div className={`bg-white p-10 rounded-3xl border shadow-sm transition-opacity ${step !== 2 ? 'opacity-40 pointer-events-none' : ''}`}>
+                                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">2. Define Options</h2>
+                                <div class="space-y-6 mb-8">
+                                    {options.map((opt, i) => (
+                                        <div key={opt.id} class="p-6 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl space-y-4">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-xs font-black text-gray-400 uppercase">Manual Option {i+1}</span>
+                                                {options.length > 1 && (
+                                                    <button onClick={() => setOptions(options.filter(o => o.id !== opt.id))} class="text-red-500 text-xs font-bold">Remove</button>
+                                                )}
+                                            </div>
+                                            <input
+                                                class="w-full p-3 bg-white border rounded-xl font-bold outline-none"
+                                                placeholder="Option Name"
+                                                value={opt.name} onChange={e => updateOption(opt.id, 'name', e.target.value)}
+                                            />
+                                            <textarea
+                                                class="w-full p-3 bg-white border rounded-xl text-sm outline-none"
+                                                placeholder="Specific Details / Rationale"
+                                                value={opt.description} onChange={e => updateOption(opt.id, 'description', e.target.value)}
+                                            ></textarea>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => addOption()} class="w-full border-2 border-dashed border-indigo-200 p-4 rounded-2xl text-indigo-600 font-bold hover:bg-indigo-50 transition-colors">
+                                        + Add Your Own Option
+                                    </button>
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <button onClick={() => setStep(1)} class="px-8 py-4 border-2 rounded-2xl font-black text-gray-400">Back</button>
+                                    <button class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-xl shadow-xl shadow-indigo-100">Document Strategy</button>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* AI SIDEBAR */}
+                        <aside className="space-y-6">
+                            <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl shadow-indigo-200">
+                                <h3 className="font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
+                                    <span class="text-xl">🧠</span> AI Strategy Engine
+                                </h3>
+                                
+                                {isAiLoading ? (
+                                    <div class="space-y-4 animate-pulse">
+                                        <div class="h-12 bg-white/10 rounded-xl"></div>
+                                        <div class="h-12 bg-white/10 rounded-xl"></div>
+                                    </div>
+                                ) : aiSuggestions.length > 0 ? (
+                                    <div class="space-y-3">
+                                        <p class="text-xs text-indigo-100 mb-4 font-medium italic">Based on 2,000+ failures, consider these paths:</p>
+                                        {aiSuggestions.map((s, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => addOption({ name: s.name, description: s.reason })}
+                                                class="w-full p-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-left text-sm transition-all"
+                                            >
+                                                <div class="font-bold">+ {s.name}</div>
+                                                <div class="text-[10px] opacity-60 mt-1">Confidence Score: {s.confidence}%</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div class="text-xs text-indigo-100 opacity-60 italic">Define your context to activate AI Intelligence.</div>
+                                )}
+                            </div>
+
+                            <div class="p-8 bg-white border border-gray-100 rounded-3xl">
+                                <h4 class="font-black text-gray-400 uppercase text-[10px] tracking-widest mb-4">Why Document?</h4>
+                                <p class="text-xs text-gray-500 leading-relaxed">By documenting your manual options alongside AI suggestions, you create a permanent audit trail of your team's logic before the outcome is known.</p>
+                            </div>
+                        </aside>
                     </div>
-
-                    <aside className="space-y-6">
-                        <h3 className="font-black text-gray-400 uppercase text-xs tracking-widest">AI Intelligence Moat</h3>
-                        
-                        {isLoading && (
-                            <div className="p-6 bg-white border rounded-3xl animate-pulse">
-                                <div className="h-4 bg-gray-100 rounded w-3/4 mb-4"></div>
-                                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-                            </div>
-                        )}
-
-                        {!isLoading && aiSuggestions.length > 0 && (
-                            <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl">
-                                <h4 className="font-bold mb-4 flex items-center gap-2">🧠 AI Suggested Options</h4>
-                                <div className="space-y-3">
-                                    {aiSuggestions.map((s, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => adoptAiOption(s.option.name)}
-                                            className="w-full p-3 bg-white/10 hover:bg-white/20 rounded-xl text-left text-sm transition"
-                                        >
-                                            + {s.option.name}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="text-[10px] mt-4 opacity-60">Suggestions based on 2,000+ historical failures.</p>
-                            </div>
-                        )}
-
-                        <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl text-amber-800">
-                            <h4 className="font-bold text-sm mb-2">💡 Pro Tip</h4>
-                            <p className="text-xs leading-relaxed">Most Series A startups fail because they hire for scale before Product-Market Fit. If you're hiring, ensure PMF is validated first.</p>
-                        </div>
-                    </aside>
                 </div>
             );
         }
