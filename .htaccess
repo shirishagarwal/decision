@@ -1,0 +1,126 @@
+# ============================================
+# DECISIONVAULT - PRODUCTION .htaccess
+# ============================================
+
+# Enable URL Rewriting
+RewriteEngine On
+RewriteBase /
+
+# ============================================
+# SECURITY
+# ============================================
+
+# Force HTTPS (SSL)
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Prevent directory browsing
+Options -Indexes
+
+# Protect sensitive files
+<FilesMatch "^(config\.php|env\.php|\.htaccess|composer\.json|composer\.lock)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden files (like .git)
+RedirectMatch 404 /\..*$
+
+# ============================================
+# CLEAN URLs (Remove .php extension)
+# ============================================
+
+# Remove .php extension from existing files
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Redirect .php URLs to clean URLs (301 permanent)
+RewriteCond %{THE_REQUEST} ^GET\ /.*\.php
+RewriteRule ^(.*)\.php$ /$1 [R=301,L]
+
+# ============================================
+# CUSTOM CLEAN URL ROUTES
+# ============================================
+
+# Homepage
+RewriteRule ^$ index.php [L]
+
+# Auth pages (these should NOT redirect to index.php)
+RewriteRule ^login$ login.php [L]
+RewriteRule ^signup$ signup.php [L]
+RewriteRule ^register$ signup.php [L]
+RewriteRule ^logout$ logout.php [L]
+RewriteRule ^forgot-password$ forgot-password.php [L]
+RewriteRule ^reset-password$ reset-password.php [L]
+
+# Dashboard
+RewriteRule ^dashboard$ dashboard.php [L]
+
+# Decisions
+RewriteRule ^decisions$ decisions.php [L]
+RewriteRule ^decisions/create$ create-decision.php [L]
+RewriteRule ^decisions/([0-9]+)$ decision.php?id=$1 [L,QSA]
+RewriteRule ^decisions/([0-9]+)/edit$ edit-decision.php?id=$1 [L,QSA]
+
+# Organization/Team
+RewriteRule ^organizations$ organizations.php [L]
+RewriteRule ^organization/create$ create-organization.php [L]
+RewriteRule ^team$ organization-dashboard.php [L]
+RewriteRule ^settings$ profile.php [L]
+
+# Static/Legal pages
+RewriteRule ^about$ about.php [L]
+RewriteRule ^help$ help.php [L]
+RewriteRule ^pricing$ pricing.php [L]
+RewriteRule ^terms$ terms.php [L]
+RewriteRule ^privacy$ privacy.php [L]
+RewriteRule ^contact$ contact.php [L]
+
+# ============================================
+# TRAILING SLASH REMOVAL
+# ============================================
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} (.+)/$
+RewriteRule ^ %1 [R=301,L]
+
+# ============================================
+# ERROR DOCUMENTS
+# ============================================
+
+ErrorDocument 404 /error-404.php
+ErrorDocument 500 /error-500.php
+ErrorDocument 403 /error-403.php
+
+# ============================================
+# PERFORMANCE
+# ============================================
+
+# Enable GZIP compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Browser caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
