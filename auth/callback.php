@@ -47,33 +47,36 @@ if (!isset($googleProfile['id'])) {
 // 4. Initialize/Update User in Database
 $pdo = getDbConnection();
 $email = $googleProfile['email'];
-$name = $googleProfile['name'];
-$googleId = $googleProfile['id'];
-$avatar = $googleProfile['picture'] ?? null;
 
-// Check if user exists
-$stmt = $pdo->prepare("SELECT id, onboarding_completed FROM users WHERE email = ?");
+$stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
-if ($user) {
-    // Existing user: Update last login info
-    $userId = $user['id'];
-    $stmt = $pdo->prepare("UPDATE users SET google_id = ?, avatar_url = ?, name = ? WHERE id = ?");
-    $stmt->execute([$googleId, $avatar, $name, $userId]);
-} else {
-    // New user: Create record
-    $stmt = $pdo->prepare("INSERT INTO users (email, google_id, name, avatar_url) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$email, $googleId, $name, $avatar]);
+if (!$user) {
+    // 1. Create User
+    $stmt = $pdo->prepare("INSERT INTO users (email, name, google_id, avatar_url) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$email, $googleProfile['name'], $googleProfile['id'], $googleProfile['picture']]);
     $userId = $pdo->lastInsertId();
+    
+    // 2. Auto-Create Personal Vault (Slug based on unique ID to prevent "taken" error)
+    $orgSlug = 'vault-' . $userId . '-' . substr(md5(uniqid()), 0, 4);
+    $stmt = $pdo->prepare("INSERT INTO organizations (name, slug, type, owner_id) VALUES (?, ?, 'personal', ?)");
+    $stmt->execute([$googleProfile['name'] . "'s Vault", $orgSlug, $userId]);
+    $orgId = $pdo->lastInsertId();
+    
+    // 3. Add as Owner
+    $stmt = $pdo->prepare("INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, 'owner')");
+    $stmt->execute([$orgId, $userId]);
+} else {
+    $userId = $user['id'];
+    // Auto-fetch their primary org for this session
+    $stmt = $pdo->prepare("SELECT organization_id FROM organization_members WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $orgId = $stmt->fetchColumn();
 }
 
-// 5. Establish Session
 $_SESSION['user_id'] = $userId;
-$_SESSION['user_email'] = $email;
-$_SESSION['user_name'] = $name;
+$_SESSION['current_org_id'] = $orgId;
 
-// 6. Route to Onboarding
-// This logic determines if they are a new "Sarah" or "TechCorp" user
-header('Location: /onboarding/check.php');
+header('Location: /dashboard.php');
 exit;
