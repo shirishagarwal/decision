@@ -1,8 +1,7 @@
 <?php
 /**
  * File Path: decision.php
- * Description: The high-fidelity view for a strategic decision.
- * Updated: Replaced manual nav with the global header include.
+ * Description: View for a strategic decision with the "Learning Loop" review form.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -10,129 +9,102 @@ requireLogin();
 $decisionId = $_GET['id'] ?? null;
 $pdo = getDbConnection();
 
-try {
-    $stmt = $pdo->prepare("
-        SELECT d.*, u.name as creator_name, u.avatar_url 
-        FROM decisions d 
-        JOIN users u ON d.created_by = u.id 
-        WHERE d.id = ?
-    ");
-    $stmt->execute([$decisionId]);
-    $decision = $stmt->fetch();
+$stmt = $pdo->prepare("SELECT d.*, u.name as creator_name FROM decisions d JOIN users u ON d.created_by = u.id WHERE d.id = ?");
+$stmt->execute([$decisionId]);
+$decision = $stmt->fetch();
 
-    if (!$decision) {
-        header('Location: /dashboard.php');
-        exit;
-    }
+if (!$decision) die("Decision not found.");
 
-    $stmt = $pdo->prepare("SELECT * FROM decision_options WHERE decision_id = ? ORDER BY created_at ASC");
-    $stmt->execute([$decisionId]);
-    $options = $stmt->fetchAll();
+$stmt = $pdo->prepare("SELECT * FROM decision_options WHERE decision_id = ?");
+$stmt->execute([$decisionId]);
+$options = $stmt->fetchAll();
 
-    $stmt = $pdo->prepare("SELECT * FROM decision_simulations WHERE decision_id = ? LIMIT 1");
-    $stmt->execute([$decisionId]);
-    $simulation = $stmt->fetch();
-
-} catch (Exception $e) {
-    die("Intelligence Retrieval Error: " . $e->getMessage());
-}
+$stmt = $pdo->prepare("SELECT * FROM decision_simulations WHERE decision_id = ? LIMIT 1");
+$stmt->execute([$decisionId]);
+$simulation = $stmt->fetch();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($decision['title']); ?> | DecisionVault</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
-        .premium-card { background: white; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border-radius: 32px; }
-    </style>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body class="flex flex-col min-h-screen">
-
-    <!-- Global Header -->
+<body class="bg-gray-50 min-h-screen">
     <?php include __DIR__ . '/includes/header.php'; ?>
 
-    <main class="max-w-7xl mx-auto py-12 px-6 flex-grow">
+    <main class="max-w-7xl mx-auto py-12 px-6">
         <div class="grid lg:grid-cols-3 gap-12">
-            
-            <!-- Left: Strategic Narrative -->
             <div class="lg:col-span-2 space-y-12">
                 <header>
-                    <div class="flex items-center gap-3 mb-6">
-                        <span class="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">
-                            <?php echo htmlspecialchars($decision['category'] ?: 'Strategic'); ?>
-                        </span>
-                        <a href="/dashboard.php" class="text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-widest">
-                            ← Back to Dashboard
-                        </a>
-                    </div>
-                    <h1 class="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-8">
-                        <?php echo htmlspecialchars($decision['title']); ?>
-                    </h1>
-                    <div class="p-10 premium-card bg-white">
-                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Core Problem Statement</h3>
-                        <p class="text-xl text-slate-600 leading-relaxed font-medium">
-                            <?php echo nl2br(htmlspecialchars($decision['problem_statement'])); ?>
-                        </p>
+                    <div class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-4">Strategic Log #<?php echo $decision['id']; ?></div>
+                    <h1 class="text-6xl font-black tracking-tighter mb-8"><?php echo htmlspecialchars($decision['title']); ?></h1>
+                    
+                    <?php if ($decision['status'] === 'Implemented'): ?>
+                        <div class="bg-emerald-50 border border-emerald-100 p-8 rounded-[40px] mb-8">
+                            <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Closed Loop Intelligence</div>
+                            <div class="text-2xl font-black text-slate-900 capitalize"><?php echo str_replace('_', ' ', $decision['review_rating']); ?></div>
+                            <p class="text-slate-600 mt-4 font-medium"><?php echo htmlspecialchars($decision['actual_outcome']); ?></p>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="bg-white p-10 rounded-[40px] border shadow-sm">
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Problem Context</h3>
+                        <p class="text-xl text-slate-700 leading-relaxed font-medium"><?php echo nl2br(htmlspecialchars($decision['problem_statement'])); ?></p>
                     </div>
                 </header>
 
-                <section>
-                    <div class="flex justify-between items-end mb-8">
-                        <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Evaluated Paths</h2>
-                    </div>
-                    <div class="space-y-6">
-                        <?php foreach($options as $opt): ?>
-                            <div class="p-8 premium-card group hover:border-indigo-200 transition-all">
-                                <div class="flex justify-between items-start mb-4">
-                                    <h3 class="text-2xl font-bold text-slate-900 group-hover:text-indigo-600 transition">
-                                        <?php echo htmlspecialchars($opt['name']); ?>
-                                    </h3>
-                                    <?php if($opt['is_ai_suggested']): ?>
-                                        <span class="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-indigo-100">
-                                            AI Pattern
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                                <p class="text-slate-500 leading-relaxed text-base font-medium">
-                                    <?php echo nl2br(htmlspecialchars($opt['description'])); ?>
-                                </p>
+                <?php if ($decision['status'] !== 'Implemented'): ?>
+                    <section class="bg-indigo-600 p-10 rounded-[40px] text-white shadow-2xl shadow-indigo-200">
+                        <h2 class="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-6">Learning Loop</h2>
+                        <form id="reviewForm" class="space-y-6">
+                            <input type="hidden" name="decision_id" value="<?php echo $decision['id']; ?>">
+                            <div class="grid grid-cols-5 gap-2">
+                                <?php foreach(['much_worse', 'worse', 'as_expected', 'better', 'much_better'] as $r): ?>
+                                    <label class="cursor-pointer text-center group">
+                                        <input type="radio" name="rating" value="<?php echo $r; ?>" class="hidden peer" required>
+                                        <div class="p-4 bg-white/10 rounded-2xl border border-white/10 peer-checked:bg-white peer-checked:text-indigo-600 transition uppercase text-[8px] font-black"><?php echo str_replace('_', ' ', $r); ?></div>
+                                    </label>
+                                <?php endforeach; ?>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
+                            <textarea name="outcome" class="w-full bg-white/10 border border-white/10 p-4 rounded-2xl text-white h-24" placeholder="What actually happened?"></textarea>
+                            <button class="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Verify Outcome & Boost IQ</button>
+                        </form>
+                    </section>
+                <?php endif; ?>
+
+                <div class="space-y-6">
+                    <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Defined Paths</h2>
+                    <?php foreach($options as $opt): ?>
+                        <div class="bg-white p-8 rounded-[40px] border shadow-sm">
+                            <h3 class="text-xl font-bold mb-2"><?php echo htmlspecialchars($opt['name']); ?></h3>
+                            <p class="text-slate-500 text-sm leading-relaxed"><?php echo htmlspecialchars($opt['description']); ?></p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
 
-            <!-- Right: Intelligence Sidebar -->
             <aside class="space-y-8">
-                <!-- Creator Profile -->
-                <div class="p-8 premium-card bg-white">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Decision Lead</h3>
-                    <div class="flex items-center gap-4">
-                        <img src="<?php echo $user['avatar_url'] ?: 'https://ui-avatars.com/api/?name='.urlencode($decision['creator_name']); ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-slate-100">
-                        <div>
-                            <div class="font-bold text-slate-900"><?php echo htmlspecialchars($decision['creator_name']); ?></div>
-                            <div class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Decision Owner</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Simulation Component -->
                 <div class="sticky top-32">
-                    <?php
-                        $targetDecisionId = $decision['id'];
-                        include __DIR__ . '/components/simulator-ui.php';
-                    ?>
+                    <?php include __DIR__ . '/components/simulator-ui.php'; ?>
                 </div>
             </aside>
         </div>
     </main>
 
-    <!-- Global Footer -->
+    <script>
+    document.getElementById('reviewForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const res = await fetch('/api/update-outcome.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if ((await res.json()).success) window.location.reload();
+    });
+    </script>
     <?php include __DIR__ . '/includes/footer.php'; ?>
-
 </body>
 </html>
