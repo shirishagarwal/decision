@@ -4,7 +4,13 @@
  * Description: Premium light-themed landing page showcasing DecisionVault's strategic features.
  */
 require_once __DIR__ . '/config.php';
-$isLoggedIn = isLoggedIn();
+
+/**
+ * We fetch the full user record instead of just checking isLoggedIn().
+ * This ensures that if the database was wiped but a session cookie exists,
+ * the user is forced to re-authenticate rather than hitting a null constraint error in the dashboard.
+ */
+$user = getCurrentUser();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -38,7 +44,7 @@ $isLoggedIn = isLoggedIn();
             </div>
             
             <div class="flex items-center gap-4">
-                <?php if($isLoggedIn): ?>
+                <?php if($user): ?>
                     <a href="dashboard.php" class="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all">Go to Vault</a>
                 <?php else: ?>
                     <a href="auth/google.php" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">Launch Vault</a>
