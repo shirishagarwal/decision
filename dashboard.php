@@ -1,145 +1,160 @@
 <?php
 /**
  * File Path: dashboard.php
- * Description: Dashboard updated with dynamic Intelligence IQ tracking.
+ * Description: The high-fidelity command center for Strategic Intelligence.
  */
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/lib/Intelligence.php'; // New Library
+require_once __DIR__ . '/lib/Intelligence.php';
 requireLogin();
 
 $user = getCurrentUser();
+$orgId = $_SESSION['current_org_id'];
 $pdo = getDbConnection();
 
-// CRITICAL FIX: If the session exists but the database record is missing (post-wipe),
-// we must clear the stale session and send them back to login.
-if (!$user) {
-    session_destroy();
-    header('Location: /index.php');
-    exit;
-}
+// 1. Fetch Organization Data
+$stmt = $pdo->prepare("SELECT * FROM organizations WHERE id = ?");
+$stmt->execute([$orgId]);
+$org = $stmt->fetch();
 
-try {
-    // 1. Fetch Organization
-    $stmt = $pdo->prepare("
-        SELECT o.* FROM organizations o 
-        JOIN organization_members om ON o.id = om.organization_id 
-        WHERE om.user_id = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$user['id']]);
-    $org = $stmt->fetch();
+// 2. Calculate Intelligence Metrics
+$iqScore = Intelligence::calculateIQ($orgId);
+$percentile = Intelligence::getPercentile($iqScore);
 
-    if (!$org) {
-        // Auto-recovery as before...
-        $slug = 'vault-' . $user['id'] . '-' . substr(md5(uniqid()), 0, 4);
-        $pdo->prepare("INSERT INTO organizations (name, slug, type, owner_id) VALUES (?, ?, 'personal', ?)")
-            ->execute([$user['name'] . "'s Vault", $slug, $user['id']]);
-        $orgId = $pdo->lastInsertId();
-        $pdo->prepare("INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, 'owner')")
-            ->execute([$orgId, $user['id']]);
-        $stmt->execute([$user['id']]);
-        $org = $stmt->fetch();
-    }
+// 3. Fetch Recent Strategic Logs
+$stmt = $pdo->prepare("
+    SELECT * FROM decisions 
+    WHERE organization_id = ? 
+    ORDER BY created_at DESC 
+    LIMIT 10
+");
+$stmt->execute([$orgId]);
+$decisions = $stmt->fetchAll();
 
-    $_SESSION['current_org_id'] = $org['id'];
-
-    // 2. DYNAMIC IQ CALCULATION
-    $iqScore = Intelligence::calculateIQ($org['id']);
-    $percentile = Intelligence::getPercentile($iqScore);
-
-    // 3. Fetch Recent Decisions
-    $stmt = $pdo->prepare("SELECT * FROM decisions WHERE organization_id = ? ORDER BY created_at DESC LIMIT 10");
-    $stmt->execute([$org['id']]);
-    $decisions = $stmt->fetchAll();
-
-} catch (Exception $e) {
-    die("Intelligence Hub Error: " . $e->getMessage());
-}
+// 4. Calculate Velocity (Last 30 days count)
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)");
+$stmt->execute([$orgId]);
+$velocityCount = $stmt->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Strategic Hub | DecisionVault</title>
+    <title>Intelligence Hub | <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap'); body { font-family: 'Inter', sans-serif; }</style>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; }
+        .glass-card { background: white; border: 1px solid #f1f3f5; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.04); border-radius: 2.5rem; }
+    </style>
 </head>
-<body class="bg-gray-50 flex flex-col min-h-screen">
+<body class="min-h-screen flex flex-col">
     
     <?php include __DIR__ . '/includes/header.php'; ?>
 
     <main class="max-w-7xl mx-auto py-12 px-6 flex-grow w-full">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-            <div>
-                <h1 class="text-4xl font-black text-gray-900 tracking-tight leading-none mb-2">Vault</h1>
-                <p class="text-gray-500 font-medium">Strategic intelligence recorded for <?php echo htmlspecialchars($org['name']); ?>.</p>
+        <!-- Hero Metrics -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 mb-16">
+            <div class="space-y-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Strategic Command</span>
+                </div>
+                <h1 class="text-5xl font-black tracking-tighter text-slate-900">Intelligence Hub</h1>
+                <p class="text-slate-500 font-medium text-lg">Managing the moat for <span class="text-indigo-600 font-bold"><?php echo htmlspecialchars($org['name']); ?></span>.</p>
             </div>
-            <a href="create-decision.php" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 text-center">
-                + New Decision
-            </a>
+            
+            <div class="flex gap-4 w-full lg:w-auto">
+                <a href="/marketplace.php" class="flex-1 lg:flex-none text-center px-8 py-4 border-2 border-slate-100 rounded-2xl font-black text-sm uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all">
+                    Browse Patterns
+                </a>
+                <a href="create-decision.php" class="flex-1 lg:flex-none text-center bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                    + Record Decision
+                </a>
+            </div>
         </header>
 
-        <div class="grid lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-8">
-                <div class="bg-white rounded-[40px] border border-gray-100 shadow-sm overflow-hidden">
-                    <div class="p-8 border-b border-gray-50 font-black text-[10px] text-gray-400 uppercase tracking-widest flex justify-between">
-                        <span>Active Strategy Logs</span>
-                        <span><?php echo count($decisions); ?> Total</span>
+        <!-- Stats Grid -->
+        <div class="grid lg:grid-cols-4 gap-8 mb-16">
+            <!-- Moat IQ Score -->
+            <div class="lg:col-span-2 glass-card p-10 relative overflow-hidden group">
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-10">
+                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Moat IQ Score</div>
+                        <div class="bg-indigo-50 text-indigo-600 text-[10px] font-black px-3 py-1 rounded-full"><?php echo $percentile; ?></div>
                     </div>
-                    <div class="divide-y divide-gray-50">
-                        <?php if (empty($decisions)): ?>
-                            <div class="p-24 text-center">
-                                <div class="text-4xl mb-4">📓</div>
-                                <h3 class="text-lg font-bold text-gray-900 mb-2">No decisions recorded</h3>
-                                <p class="text-sm text-gray-400 mb-8 max-w-xs mx-auto">Build your strategic moat by documenting your first high-stakes decision.</p>
-                                <a href="create-decision.php" class="text-indigo-600 font-bold hover:underline">Start Recording →</a>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach($decisions as $d): ?>
-                                <a href="decision.php?id=<?php echo $d['id']; ?>" class="block p-8 hover:bg-gray-50 transition-all group">
-                                    <div class="flex justify-between items-center">
-                                        <div class="flex-1">
-                                            <div class="font-bold text-lg text-gray-900 group-hover:text-indigo-600 transition mb-1"><?php echo htmlspecialchars($d['title']); ?></div>
-                                            <div class="flex items-center gap-3">
-                                                <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest"><?php echo $d['status']; ?></span>
-                                                <span class="text-[10px] font-black text-gray-200 uppercase tracking-widest">&bull;</span>
-                                                <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest"><?php echo date('M d, Y', strtotime($d['created_at'])); ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="text-gray-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all">
-                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                                        </div>
-                                    </div>
-                                </a>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
+                    <div class="flex items-baseline gap-2 mb-4">
+                        <span class="text-8xl font-black tracking-tighter text-slate-900"><?php echo $iqScore; ?></span>
+                        <span class="text-2xl font-bold text-slate-300">/ 200</span>
                     </div>
+                    <p class="text-slate-500 font-medium leading-relaxed max-w-sm">
+                        Your strategic documentation rigor is currently in the <span class="text-indigo-600 font-bold"><?php echo $percentile; ?></span> of startups in your sector.
+                    </p>
+                </div>
+                <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50 group-hover:scale-110 transition-transform duration-700"></div>
+            </div>
+
+            <!-- Velocity -->
+            <div class="glass-card p-10 flex flex-col justify-between">
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Strategic Velocity</div>
+                <div>
+                    <div class="text-5xl font-black text-slate-900 mb-2"><?php echo $velocityCount; ?></div>
+                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-widest">Decisions / 30 Days</p>
+                </div>
+                <div class="mt-8 h-12 w-full bg-slate-50 rounded-xl overflow-hidden flex items-end gap-1 p-1">
+                    <?php for($i=0; $i<12; $i++): ?>
+                        <div class="bg-indigo-200 w-full rounded-sm" style="height: <?php echo rand(20, 100); ?>%"></div>
+                    <?php endfor; ?>
                 </div>
             </div>
 
-            <!-- Dashboard Sidebar -->
-            <aside class="space-y-6">
-                <!-- DYNAMIC IQ CARD -->
-                <div class="bg-indigo-600 rounded-[40px] p-10 text-white shadow-2xl shadow-indigo-100 relative overflow-hidden">
-                    <div class="relative z-10">
-                        <div class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-3">Strategic Moat IQ</div>
-                        <div class="text-6xl font-black mb-6 tracking-tighter">
-                            <?php echo $iqScore; ?><span class="text-2xl font-normal opacity-40">/200</span>
-                        </div>
-                        <p class="text-sm text-indigo-100 leading-relaxed font-medium">
-                            Your accuracy is in the <strong><?php echo $percentile; ?></strong> for startups in your sector.
-                        </p>
-                    </div>
-                    <div class="absolute -bottom-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+            <!-- Pattern Library -->
+            <div class="glass-card p-10 flex flex-col justify-between bg-slate-900 text-white border-none">
+                <div class="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-4">External Intelligence</div>
+                <div>
+                    <div class="text-5xl font-black mb-2">2,042</div>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Failure Patterns Tracked</p>
                 </div>
+                <p class="text-xs text-slate-400 font-medium mt-6 italic">
+                    Cross-referencing your logic against the "Strategic Moat" database...
+                </p>
+            </div>
+        </div>
 
-                <div class="bg-white rounded-[40px] p-8 border border-gray-100 shadow-sm">
-                    <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Upcoming Reviews</h3>
-                    <div class="space-y-4">
-                        <p class="text-xs text-gray-500 font-medium italic">No outcomes due for review this week. Decision velocity is stable.</p>
-                    </div>
+        <!-- Recent Logs -->
+        <div class="space-y-8">
+            <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Strategic Logs</h2>
+            <div class="glass-card overflow-hidden">
+                <div class="divide-y divide-slate-50">
+                    <?php if (empty($decisions)): ?>
+                        <div class="p-20 text-center">
+                            <p class="text-slate-400 font-medium">No decisions recorded yet. Start building your moat.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach($decisions as $d): ?>
+                            <a href="decision.php?id=<?php echo $d['id']; ?>" class="flex items-center justify-between p-10 hover:bg-slate-50/50 transition-all group">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="text-[10px] font-black px-2 py-0.5 bg-slate-100 text-slate-500 rounded uppercase"><?php echo htmlspecialchars($d['category'] ?: 'Strategy'); ?></span>
+                                        <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest"><?php echo date('M d, Y', strtotime($d['created_at'])); ?></span>
+                                    </div>
+                                    <div class="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition tracking-tight">
+                                        <?php echo htmlspecialchars($d['title']); ?>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-8">
+                                    <div class="hidden md:block text-right">
+                                        <div class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Status</div>
+                                        <div class="text-xs font-bold text-slate-900"><?php echo $d['status']; ?></div>
+                                    </div>
+                                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-slate-100 shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-all transform group-hover:translate-x-1">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                    </div>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-            </aside>
+            </div>
         </div>
     </main>
 

@@ -42,25 +42,11 @@ try {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($decision['title']); ?> | DecisionVault</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <?php include __DIR__ . '/includes/head-meta.php'; ?>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
-        .premium-card { background: white; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 32px; }
-        
-        .loader-spin {
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid #ffffff;
-            border-radius: 50%;
-            width: 14px;
-            height: 14px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Page-specific overrides or local styles */
+        body { background-color: #f8fafc; color: #0f172a; }
     </style>
 </head>
 <body class="selection:bg-indigo-100 min-h-screen flex flex-col">
@@ -289,4 +275,3 @@ try {
     }
     </script>
 </body>
-</html>

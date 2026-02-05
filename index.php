@@ -18,6 +18,8 @@ $user = getCurrentUser();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DecisionVault | Build Your Strategic Moat</title>
+    
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -28,7 +30,6 @@ $user = getCurrentUser();
         .feature-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .feature-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05); }
     </style>
-            <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="selection:bg-indigo-100">
 
@@ -53,6 +54,7 @@ $user = getCurrentUser();
             </div>
         </div>
     </nav>
+
 
     <!-- Hero Section -->
     <section class="pt-40 pb-32 px-6 overflow-hidden">
@@ -93,92 +95,3 @@ $user = getCurrentUser();
                 <!-- Feature 1: Intelligence Moat -->
                 <div class="bg-white p-10 rounded-[2.5rem] border border-slate-100 feature-card">
                     <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl mb-8">🛡️</div>
-                    <h3 class="text-xl font-black text-slate-900 mb-4 tracking-tight">Intelligence Moat</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed font-medium">
-                        Access our proprietary library of 2,042 startup failure patterns to identify blind spots in your logic.
-                    </p>
-                </div>
-
-                <!-- Feature 2: AI Stress Tests -->
-                <div class="bg-white p-10 rounded-[2.5rem] border border-slate-100 feature-card">
-                    <div class="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-2xl mb-8">⚡</div>
-                    <h3 class="text-xl font-black text-slate-900 mb-4 tracking-tight">AI Stress Tests</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed font-medium">
-                        Our 'Chief Disaster Officer' AI simulates your decision's collapse at 30, 90, and 365 days.
-                    </p>
-                </div>
-
-                <!-- Feature 3: Strategic IQ -->
-                <div class="bg-white p-10 rounded-[2.5rem] border border-slate-100 feature-card">
-                    <div class="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-2xl mb-8">📈</div>
-                    <h3 class="text-xl font-black text-slate-900 mb-4 tracking-tight">Moat IQ</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed font-medium">
-                        Track your organizational accuracy. Reward precision and close the strategic learning loop.
-                    </p>
-                </div>
-
-                <!-- Feature 4: Marketplace -->
-                <div class="bg-white p-10 rounded-[2.5rem] border border-slate-100 feature-card">
-                    <div class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-8">🦄</div>
-                    <h3 class="text-xl font-black text-slate-900 mb-4 tracking-tight">The Marketplace</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed font-medium">
-                        Adopt proven decision templates from world-class operators. Don't reinvent the wheel.
-                    </p>
-                </div>
-
-            </div>
-        </div>
-    </section>
-
-    <!-- Social Proof/Stats -->
-    <section class="py-32 px-6">
-        <div class="max-w-7xl mx-auto">
-            <div class="bg-slate-900 rounded-[3rem] p-12 md:p-24 text-center text-white relative overflow-hidden">
-                <div class="relative z-10">
-                    <h2 class="text-4xl md:text-6xl font-black tracking-tighter mb-16">
-                        Trusted by the next generation of<br/>
-                        <span class="text-indigo-400">Decisive Leaders.</span>
-                    </h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-12">
-                        <div>
-                            <div class="text-5xl font-black mb-2 tracking-tighter">2,042</div>
-                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Failure Patterns</div>
-                        </div>
-                        <div>
-                            <div class="text-5xl font-black mb-2 tracking-tighter">14k+</div>
-                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Decisions Audited</div>
-                        </div>
-                        <div>
-                            <div class="text-5xl font-black mb-2 tracking-tighter">84%</div>
-                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Reduction in Churn</div>
-                        </div>
-                        <div>
-                            <div class="text-5xl font-black mb-2 tracking-tighter">TOP 1%</div>
-                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Strategic Velocity</div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Abstract Design -->
-                <div class="absolute -top-20 -left-20 w-96 h-96 bg-indigo-600/20 blur-[120px] rounded-full"></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="pb-40 pt-20 px-6">
-        <div class="max-w-3xl mx-auto text-center">
-            <h2 class="text-4xl font-black text-slate-900 tracking-tight mb-8">Ready to secure your strategy?</h2>
-            <p class="text-slate-500 text-lg font-medium mb-12">Join 400+ high-growth teams building their defensive strategic moat.</p>
-            <a href="auth/google.php" class="inline-block bg-indigo-600 text-white px-12 py-6 rounded-2xl font-black text-xl shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
-                Enter the Vault
-            </a>
-            <div class="mt-8 text-slate-400 text-xs font-bold uppercase tracking-widest">
-                No credit card required • GDPR Compliant • SSO Ready
-            </div>
-        </div>
-    </section>
-
-    <?php include __DIR__ . '/includes/footer.php'; ?>
-
-</body>
-</html>
