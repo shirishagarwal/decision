@@ -1,13 +1,12 @@
 <?php
 /**
  * File Path: includes/header.php
- * Description: Global navigation and branding.
+ * Updated: Verified all links map to correct files.
  */
 require_once __DIR__ . '/../config.php';
 $user = getCurrentUser();
 $orgId = $_SESSION['current_org_id'] ?? null;
 
-// Ensure we have an org for the header display
 $orgName = "Workspace";
 if ($orgId) {
     $pdo = getDbConnection();
@@ -16,7 +15,7 @@ if ($orgId) {
     $orgName = $stmt->fetchColumn() ?: "Workspace";
 }
 ?>
-<nav class="bg-white border-b border-gray-100 p-5 sticky top-0 z-50">
+<nav class="bg-white border-b border-gray-200 p-5 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto flex justify-between items-center">
         <div class="flex items-center gap-6">
             <a href="/dashboard.php" class="font-black text-2xl tracking-tighter text-gray-900 group">

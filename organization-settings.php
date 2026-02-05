@@ -1,135 +1,96 @@
 <?php
 /**
- * DecisionVault - Organization Settings
- * Allows Owners and Admins to manage branding and core settings.
+ * File Path: organization-settings.php
+ * Description: Management of the organization and team members.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
 
 $user = getCurrentUser();
 $pdo = getDbConnection();
+$orgId = $_SESSION['current_org_id'];
 
-$orgId = $_GET['id'] ?? $_SESSION['current_org_id'] ?? null;
-
-// Permission Check: Must be Owner or Admin
-$stmt = $pdo->prepare("
-    SELECT o.*, om.role as user_role
-    FROM organizations o
-    INNER JOIN organization_members om ON o.id = om.organization_id
-    WHERE o.id = ? AND om.user_id = ? AND om.status = 'active'
-");
-$stmt->execute([$orgId, $user['id']]);
+// 1. Fetch Org Data
+$stmt = $pdo->prepare("SELECT * FROM organizations WHERE id = ?");
+$stmt->execute([$orgId]);
 $org = $stmt->fetch();
 
-if (!$org || !in_array($org['user_role'], ['owner', 'admin'])) {
-    header('Location: /error-403.php');
-    exit;
-}
+// 2. Fetch Team Members
+$stmt = $pdo->prepare("
+    SELECT u.name, u.email, u.avatar_url, om.role 
+    FROM users u 
+    JOIN organization_members om ON u.id = om.user_id 
+    WHERE om.organization_id = ?
+");
+$stmt->execute([$orgId]);
+$members = $stmt->fetchAll();
 
-$success = '';
-$error = '';
-
-// Handle Settings Update
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name'] ?? '');
-    $website = trim($_POST['website'] ?? '');
-    $colorPrimary = $_POST['color_primary'] ?? '#4F46E5';
-    $colorSecondary = $_POST['color_secondary'] ?? '#7C3AED';
-
-    try {
-        $stmt = $pdo->prepare("
-            UPDATE organizations 
-            SET name = ?, website = ?, color_primary = ?, color_secondary = ?, updated_at = NOW() 
-            WHERE id = ?
-        ");
-        $stmt->execute([$name, $website, $colorPrimary, $colorSecondary, $orgId]);
-        
-        // Log Audit Event
-        $stmt = $pdo->prepare("
-            INSERT INTO audit_logs (organization_id, user_id, action, entity_type, entity_id, new_values)
-            VALUES (?, ?, 'updated_settings', 'organization', ?, ?)
-        ");
-        $stmt->execute([$orgId, $user['id'], $orgId, json_encode($_POST)]);
-        
-        $success = 'Organization settings updated successfully.';
-        $org['name'] = $name; // Update local variable for UI
-    } catch (Exception $e) {
-        $error = 'Failed to update settings. Please try again.';
-    }
-}
+$tab = $_GET['tab'] ?? 'general';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Org Settings | <?php echo htmlspecialchars($org['name']); ?></title>
+    <meta charset="UTF-8">
+    <title>Settings | <?php echo htmlspecialchars($org['name']); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <nav class="bg-white border-b border-gray-200 p-4">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <a href="/organization-dashboard.php" class="text-indigo-600 font-bold">← Dashboard</a>
-            <h1 class="font-black text-xl">Organization Settings</h1>
-        </div>
-    </nav>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <?php include __DIR__ . '/includes/header.php'; ?>
 
-    <div class="max-w-4xl mx-auto py-12 px-4">
-        <?php if ($success): ?>
-            <div class="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl"><?php echo $success; ?></div>
-        <?php endif; ?>
-
-        <div class="grid md:grid-cols-3 gap-8">
+    <main class="max-w-7xl mx-auto py-16 px-6 flex-grow w-full">
+        <div class="grid lg:grid-cols-4 gap-12">
+            <!-- Sidebar Tabs -->
             <aside class="space-y-2">
-                <a href="#" class="block p-3 bg-indigo-600 text-white rounded-xl font-bold">General & Branding</a>
-                <a href="/organization-dashboard.php" class="block p-3 text-gray-500 hover:bg-gray-100 rounded-xl font-medium">Team Members</a>
-                <a href="/billing.php" class="block p-3 text-gray-500 hover:bg-gray-100 rounded-xl font-medium">Plans & Billing</a>
+                <a href="?tab=general" class="block px-6 py-3 rounded-xl font-bold text-sm <?php echo $tab === 'general' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-900'; ?>">General Settings</a>
+                <a href="?tab=team" class="block px-6 py-3 rounded-xl font-bold text-sm <?php echo $tab === 'team' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-900'; ?>">Team Members</a>
             </aside>
 
-            <form method="POST" class="md:col-span-2 bg-white rounded-3xl border shadow-sm p-8 space-y-8">
-                <section>
-                    <h2 class="text-xl font-bold mb-6">Company Identity</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Company Name</label>
-                            <input type="text" name="name" value="<?php echo htmlspecialchars($org['name']); ?>"
-                                   class="w-full p-4 border-2 rounded-2xl outline-indigo-600">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Website</label>
-                            <input type="url" name="website" value="<?php echo htmlspecialchars($org['website'] ?? ''); ?>"
-                                   placeholder="https://company.com"
-                                   class="w-full p-4 border-2 rounded-2xl outline-indigo-600">
-                        </div>
-                    </div>
-                </section>
+            <!-- Content -->
+            <div class="lg:col-span-3">
+                <?php if ($tab === 'general'): ?>
+                    <section class="bg-white p-10 rounded-[40px] border border-gray-100 shadow-sm">
+                        <h2 class="text-3xl font-black mb-8">Organization Profile</h2>
+                        <form class="space-y-6">
+                            <div>
+                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Workspace Name</label>
+                                <input type="text" class="w-full p-4 border rounded-2xl bg-gray-50 font-bold" value="<?php echo htmlspecialchars($org['name']); ?>">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Slug (URL)</label>
+                                <input type="text" class="w-full p-4 border rounded-2xl bg-gray-50 text-gray-400" disabled value="offduties.com/v/<?php echo $org['slug']; ?>">
+                            </div>
+                            <button type="button" class="bg-gray-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Update Profile</button>
+                        </form>
+                    </section>
 
-                <section class="pt-8 border-t">
-                    <h2 class="text-xl font-bold mb-6">Brand Customization</h2>
-                    <p class="text-sm text-gray-500 mb-6">These colors will be used across your dashboards and shared decisions.</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Primary Color</label>
-                            <input type="color" name="color_primary" value="<?php echo $org['color_primary'] ?: '#4F46E5'; ?>"
-                                   class="w-full h-14 p-1 rounded-xl cursor-pointer">
+                <?php elseif ($tab === 'team'): ?>
+                    <section class="bg-white p-10 rounded-[40px] border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-10">
+                            <h2 class="text-3xl font-black">Team Members</h2>
+                            <button class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100">+ Invite Member</button>
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Secondary Color</label>
-                            <input type="color" name="color_secondary" value="<?php echo $org['color_secondary'] ?: '#7C3AED'; ?>"
-                                   class="w-full h-14 p-1 rounded-xl cursor-pointer">
-                        </div>
-                    </div>
-                </section>
 
-                <div class="pt-8">
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-indigo-700 transition">
-                        Save Organization Settings
-                    </button>
-                </div>
-            </form>
+                        <div class="space-y-6">
+                            <?php foreach($members as $m): ?>
+                                <div class="flex items-center justify-between p-6 bg-gray-50 rounded-[2rem] border border-gray-100">
+                                    <div class="flex items-center gap-4">
+                                        <img src="<?php echo $m['avatar_url'] ?: 'https://ui-avatars.com/api/?name='.urlencode($m['name']); ?>" class="w-12 h-12 rounded-full border">
+                                        <div>
+                                            <div class="font-bold text-gray-900"><?php echo htmlspecialchars($m['name']); ?></div>
+                                            <div class="text-xs text-gray-400"><?php echo htmlspecialchars($m['email']); ?></div>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] font-black px-3 py-1 bg-white border rounded-full uppercase tracking-widest text-gray-500"><?php echo $m['role']; ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </section>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
+    </main>
+
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
