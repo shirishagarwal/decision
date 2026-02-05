@@ -28,6 +28,7 @@ $user = getCurrentUser();
         .feature-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .feature-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05); }
     </style>
+            <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="selection:bg-indigo-100">
 
