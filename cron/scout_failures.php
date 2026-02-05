@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config.php';
  * We search Hacker News for a wider array of failure-related keywords.
  */
 function discoverLinks() {
+    // Search back 100 days as per user configuration
     $yesterday = time() - (100 * 24 * 60 * 60);
     
     // Expanded keyword list to catch non-startup corporate failures
@@ -74,10 +75,10 @@ function fetchUrlContent($url) {
  * 3. Strategic Analysis via Gemini
  */
 function analyzeWithAI($text) {
-    // API Key is provided by the execution environment at runtime
-    const apiKey = "";
-    const model = "gemini-2.5-flash-preview-09-2025";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // Corrected PHP syntax: using constants from config/env and proper variable assignment
+    $apiKey = GEMINI_API_KEY;
+    $model = GEMINI_MODEL;
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
 
     $prompt = "Analyze this business text which describes a strategic failure, a bad corporate decision, or a company collapse.
     
@@ -129,7 +130,7 @@ $pdo = getDbConnection();
 $ingestedCount = 0;
 
 if (empty($hits)) {
-    echo "[Scout] No new public failure signals identified in the last 24h cycle.\n";
+    echo "[Scout] No new public failure signals identified in the timeframe.\n";
     exit;
 }
 
