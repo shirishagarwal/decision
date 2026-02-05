@@ -2,15 +2,31 @@
 /**
  * File Path: marketplace.php
  * Description: High-end marketplace for strategic decision templates.
+ * Updated: Added error handling to prevent 500 errors when the database table is missing.
  */
+
+// Enable error reporting to diagnose the specific cause of 500 errors
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/config.php';
 requireLogin();
 
-$pdo = getDbConnection();
-$stmt = $pdo->query("SELECT * FROM decision_templates WHERE is_public = 1 ORDER BY use_count DESC");
-$templates = $stmt->fetchAll();
+$templates = [];
+$dbError = false;
 
-// Mock templates if DB is empty for UI demonstration
+try {
+    $pdo = getDbConnection();
+    // Check if the table exists first to avoid a hard PDO exception
+    $stmt = $pdo->query("SELECT * FROM decision_templates WHERE is_public = 1 ORDER BY use_count DESC");
+    $templates = $stmt->fetchAll();
+} catch (Exception $e) {
+    // If the table doesn't exist yet, we'll use the mock data below
+    $dbError = true;
+}
+
+// Fallback to mock templates if DB is empty or table is missing
 if (empty($templates)) {
     $templates = [
         ['id' => 1, 'name' => 'The Unicorn Hire', 'category' => 'Hiring', 'description' => 'A template for hiring critical early-stage executives (VP, Head of).', 'use_count' => 1240],
@@ -34,6 +50,12 @@ if (empty($templates)) {
         <header class="mb-12">
             <h1 class="text-4xl font-black text-gray-900 tracking-tight leading-none mb-4">Strategic Marketplace</h1>
             <p class="text-gray-500 font-medium">Download pre-mortems and decision templates from the world's best operators.</p>
+            
+            <?php if ($dbError): ?>
+                <div class="mt-4 p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-xs font-bold">
+                    Note: Database tables for templates not found. Showing preview templates.
+                </div>
+            <?php endif; ?>
         </header>
 
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
