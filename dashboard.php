@@ -1,16 +1,17 @@
 <?php
 /**
  * File Path: dashboard.php
- * Description: Dashboard with "Session Resync" and global include pattern.
+ * Description: Dashboard updated with dynamic Intelligence IQ tracking.
  */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/Intelligence.php'; // New Library
 requireLogin();
 
 $user = getCurrentUser();
 $pdo = getDbConnection();
 
 try {
-    // 1. Fetch Organization for the current user
+    // 1. Fetch Organization
     $stmt = $pdo->prepare("
         SELECT o.* FROM organizations o 
         JOIN organization_members om ON o.id = om.organization_id 
@@ -20,25 +21,26 @@ try {
     $stmt->execute([$user['id']]);
     $org = $stmt->fetch();
 
-    // 2. AUTO-RECOVERY: Ensure org exists
     if (!$org) {
+        // Auto-recovery as before...
         $slug = 'vault-' . $user['id'] . '-' . substr(md5(uniqid()), 0, 4);
         $pdo->prepare("INSERT INTO organizations (name, slug, type, owner_id) VALUES (?, ?, 'personal', ?)")
             ->execute([$user['name'] . "'s Vault", $slug, $user['id']]);
         $orgId = $pdo->lastInsertId();
-        
         $pdo->prepare("INSERT INTO organization_members (organization_id, user_id, role) VALUES (?, ?, 'owner')")
             ->execute([$orgId, $user['id']]);
-        
         $stmt->execute([$user['id']]);
         $org = $stmt->fetch();
     }
 
-    // 3. SESSION RESYNC
     $_SESSION['current_org_id'] = $org['id'];
 
-    // 4. Fetch Decisions
-    $stmt = $pdo->prepare("SELECT * FROM decisions WHERE organization_id = ? ORDER BY created_at DESC");
+    // 2. DYNAMIC IQ CALCULATION
+    $iqScore = Intelligence::calculateIQ($org['id']);
+    $percentile = Intelligence::getPercentile($iqScore);
+
+    // 3. Fetch Recent Decisions
+    $stmt = $pdo->prepare("SELECT * FROM decisions WHERE organization_id = ? ORDER BY created_at DESC LIMIT 10");
     $stmt->execute([$org['id']]);
     $decisions = $stmt->fetchAll();
 
@@ -50,14 +52,12 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Strategic Hub | DecisionVault</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap'); body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
     
-    <!-- Global Header -->
     <?php include __DIR__ . '/includes/header.php'; ?>
 
     <main class="max-w-7xl mx-auto py-12 px-6 flex-grow w-full">
@@ -99,7 +99,7 @@ try {
                                             </div>
                                         </div>
                                         <div class="text-gray-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all">
-                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                                         </div>
                                     </div>
                                 </a>
@@ -111,11 +111,16 @@ try {
 
             <!-- Dashboard Sidebar -->
             <aside class="space-y-6">
+                <!-- DYNAMIC IQ CARD -->
                 <div class="bg-indigo-600 rounded-[40px] p-10 text-white shadow-2xl shadow-indigo-100 relative overflow-hidden">
                     <div class="relative z-10">
                         <div class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-3">Strategic Moat IQ</div>
-                        <div class="text-6xl font-black mb-6 tracking-tighter">84<span class="text-2xl font-normal opacity-40">/200</span></div>
-                        <p class="text-sm text-indigo-100 leading-relaxed font-medium">Your accuracy is in the <strong>Top 12%</strong> for startups in your sector.</p>
+                        <div class="text-6xl font-black mb-6 tracking-tighter">
+                            <?php echo $iqScore; ?><span class="text-2xl font-normal opacity-40">/200</span>
+                        </div>
+                        <p class="text-sm text-indigo-100 leading-relaxed font-medium">
+                            Your accuracy is in the <strong><?php echo $percentile; ?></strong> for startups in your sector.
+                        </p>
                     </div>
                     <div class="absolute -bottom-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
                 </div>
@@ -130,8 +135,6 @@ try {
         </div>
     </main>
 
-    <!-- Global Footer -->
     <?php include __DIR__ . '/includes/footer.php'; ?>
-
 </body>
 </html>
