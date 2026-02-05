@@ -1,58 +1,71 @@
 <?php
 /**
  * File Path: components/simulator-ui.php
- * Description: Visual component to run and display Strategic Stress Tests.
+ * Usage: Included in decision.php to handle AI simulations.
  */
 ?>
-<!-- Aggressive Pre-Mortem UI -->
-<div class="mt-12 bg-red-950/20 border-2 border-red-900/40 p-8 rounded-3xl shadow-2xl">
-    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-        <div>
-            <h2 class="text-2xl font-black text-red-500 uppercase tracking-tighter">Strategic Stress Test</h2>
-            <p class="text-red-400/60 text-sm">Our AI 'Chief Disaster Officer' simulates a catastrophic collapse to find your weak points.</p>
-        </div>
-        <button onclick="runSimulation()" id="simBtn" class="bg-red-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-red-700 transition shadow-xl shadow-red-900/20 active:scale-95">
-            Run Pre-Mortem
-        </button>
-    </div>
+<div class="p-8 premium-card bg-slate-900 text-white shadow-2xl shadow-indigo-200/50 border-none relative overflow-hidden">
+    <!-- Background Decor -->
+    <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/20 blur-3xl rounded-full"></div>
 
-    <!-- Loading State -->
-    <div id="sim-loader" class="hidden py-12 text-center">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500 mb-4"></div>
-        <div class="font-mono text-red-500 uppercase tracking-widest text-sm">Identifying failure vectors...</div>
-    </div>
+    <div class="relative z-10">
+        <div class="flex items-center gap-2 mb-8">
+            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            <h2 class="text-[10px] font-black text-red-400 uppercase tracking-[0.2em]">Aggressive Stress Test</h2>
+        </div>
 
-    <!-- Results Display -->
-    <div id="sim-results" class="hidden grid md:grid-cols-3 gap-6">
-        <div class="bg-black/40 p-6 rounded-2xl border border-red-900/50">
-            <div class="text-xs font-black text-red-500 mb-3 uppercase tracking-widest opacity-70">Day 30: Red Flags</div>
-            <p id="d30" class="text-gray-300 text-sm leading-relaxed"></p>
+        <div id="sim-intro" class="<?php echo $simulation ? 'hidden' : ''; ?>">
+            <p class="text-sm text-slate-400 leading-relaxed mb-8">
+                Our AI 'Chief Disaster Officer' will simulate a catastrophic collapse of this decision to identify your hidden weak points.
+            </p>
+            <button onclick="runStressTest()" id="simBtn" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-900/40">
+                Simulate Failure
+            </button>
         </div>
-        <div class="bg-black/40 p-6 rounded-2xl border border-red-900/50">
-            <div class="text-xs font-black text-red-500 mb-3 uppercase tracking-widest opacity-70">Day 90: Critical Drift</div>
-            <p id="d90" class="text-gray-300 text-sm leading-relaxed"></p>
+
+        <!-- Loading State -->
+        <div id="sim-loader" class="hidden py-12 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500 mb-4"></div>
+            <div class="text-[10px] font-black text-red-500 uppercase tracking-widest">Calculating failure vectors...</div>
         </div>
-        <div class="bg-black/40 p-6 rounded-2xl border border-red-900/50">
-            <div class="text-xs font-black text-red-500 mb-3 uppercase tracking-widest opacity-70">Day 365: Final Autopsy</div>
-            <p id="d365" class="text-gray-300 text-sm leading-relaxed"></p>
+
+        <!-- Results Display -->
+        <div id="sim-results" class="<?php echo !$simulation ? 'hidden' : ''; ?> space-y-6">
+            <div class="space-y-4">
+                <div class="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <div class="text-[10px] font-black text-red-500 mb-1 uppercase">Day 30 Red Flags</div>
+                    <p id="d30" class="text-xs text-slate-300 leading-relaxed font-medium"><?php echo $simulation['day30'] ?? ''; ?></p>
+                </div>
+                <div class="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <div class="text-[10px] font-black text-red-500 mb-1 uppercase">Day 90 Critical Drift</div>
+                    <p id="d90" class="text-xs text-slate-300 leading-relaxed font-medium"><?php echo $simulation['day90'] ?? ''; ?></p>
+                </div>
+                <div class="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <div class="text-[10px] font-black text-red-500 mb-1 uppercase">Day 365 Autopsy</div>
+                    <p id="d365" class="text-xs text-slate-300 leading-relaxed font-medium"><?php echo $simulation['day365'] ?? ''; ?></p>
+                </div>
+            </div>
+            
+            <div class="pt-4 border-t border-white/10">
+                <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase">Recommended Mitigation</div>
+                <p id="mitigate" class="text-xs text-indigo-100 font-bold leading-relaxed italic"><?php echo $simulation['mitigation_plan'] ?? ''; ?></p>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-/**
- * Trigger the simulation and update the UI with results.
- */
-async function runSimulation() {
+async function runStressTest() {
     const btn = document.getElementById('simBtn');
     const loader = document.getElementById('sim-loader');
     const results = document.getElementById('sim-results');
+    const intro = document.getElementById('sim-intro');
 
-    btn.classList.add('hidden');
+    intro.classList.add('hidden');
     loader.classList.remove('hidden');
 
     try {
-        const response = await fetch(`/api/simulate.php?id=<?php echo $decisionId; ?>`);
+        const response = await fetch('/api/simulate.php?id=<?php echo $targetDecisionId; ?>');
         const data = await response.json();
         
         if (data.error) throw new Error(data.error);
@@ -60,15 +73,14 @@ async function runSimulation() {
         document.getElementById('d30').innerText = data.day30;
         document.getElementById('d90').innerText = data.day90;
         document.getElementById('d365').innerText = data.day365;
+        document.getElementById('mitigate').innerText = data.mitigation;
 
         loader.classList.add('hidden');
         results.classList.remove('hidden');
-        results.scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
-        console.error(e);
-        alert("Strategic Simulation Failed: " + e.message);
-        btn.classList.remove('hidden');
+        alert("Stress Test Failed: " + e.message);
         loader.classList.add('hidden');
+        intro.classList.remove('hidden');
     }
 }
 </script>
