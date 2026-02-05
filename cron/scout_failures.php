@@ -168,7 +168,7 @@ function analyzeWithAI($text) {
 }
 
 // --- MAIN EXECUTION ---
-echo "[Hi there Scout is] Initializing broad strategic discovery (100-day window)...\n";
+echo "[Hi Scout is] Initializing broad strategic discovery (100-day window)...\n";
 
 $hits = discoverLinks();
 $pdo = getDbConnection();
