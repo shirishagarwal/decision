@@ -1,7 +1,7 @@
 <?php
 /**
  * File Path: lib/SimulationEngine.php
- * Description: Advanced AI logic with aggressive JSON extraction to fix "undefined" errors.
+ * Description: AI logic for the Aggressive Stress Test (Pre-Mortem).
  */
 
 class SimulationEngine {
@@ -11,25 +11,38 @@ class SimulationEngine {
         $this->pdo = getDbConnection();
     }
 
+    /**
+     * Runs a pre-mortem simulation using Gemini.
+     */
     public function runStressTest($decisionId) {
-        $stmt = $this->pdo->prepare("SELECT title, problem_statement FROM decisions WHERE id = ?");
+        $stmt = $this->pdo->prepare("
+            SELECT d.*, GROUP_CONCAT(do.name SEPARATOR ', ') as options_list
+            FROM decisions d
+            LEFT JOIN decision_options do ON d.id = do.decision_id
+            WHERE d.id = ?
+            GROUP BY d.id
+        ");
         $stmt->execute([$decisionId]);
         $decision = $stmt->fetch();
 
-        if (!$decision) return ['error' => 'Decision not found'];
+        if (!$decision) return ['error' => 'Decision context not found.'];
 
-        $prompt = "Act as a 'Chief Disaster Officer'. This decision has FAILED catastrophically: '{$decision['title']}'. 
+        $prompt = "Act as a 'Chief Disaster Officer' performing a brutal Pre-Mortem. 
+        The following decision was made: '{$decision['title']}'.
         Context: '{$decision['problem_statement']}'.
-        
-        Provide a JSON response with THESE EXACT KEYS: 
-        'day30' (early warning signs), 
-        'day90' (critical drift point), 
-        'day365' (final collapse autopsy),
-        'mitigation' (how to prevent it).
-        
-        Return ONLY the JSON object. Do not explain.";
+        Options considered: '{$decision['options_list']}'.
+
+        ASSUME IT IS 12 MONTHS LATER AND THIS DECISION HAS FAILED COMPLETELY.
+        Provide a JSON response with these keys:
+        1. 'day30': Subtle early warning signs that were ignored.
+        2. 'day90': The specific point where the strategy drifted into crisis.
+        3. 'day365': The final autopsy of the collapse.
+        4. 'mitigation': One specific 'fail-safe' the user should implement NOW to prevent this.
+
+        Return ONLY raw JSON.";
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        
         $payload = [
             "contents" => [["parts" => [["text" => $prompt]]]],
             "generationConfig" => ["responseMimeType" => "application/json"]
@@ -45,22 +58,6 @@ class SimulationEngine {
         curl_close($ch);
 
         $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
-        
-        // AGGRESSIVE CLEANING: Strip backticks or preamble if the AI ignored the JSON config
-        if (preg_match('/\{.*\}/s', $rawText, $matches)) {
-            $data = json_decode($matches[0], true);
-        } else {
-            $data = json_decode($rawText, true);
-        }
-
-        if (!$data) return ['error' => 'AI returned malformed data.'];
-
-        // Standardize output to ensure the UI finds the keys it needs
-        return [
-            'day30' => $data['day30'] ?? ($data['Day 30'] ?? 'No early flags identified.'),
-            'day90' => $data['day90'] ?? ($data['Day 90'] ?? 'No drift patterns identified.'),
-            'day365' => $data['day365'] ?? ($data['Day 365'] ?? 'Collapse autopsy unavailable.'),
-            'mitigation' => $data['mitigation'] ?? ($data['mitigation_plan'] ?? 'Follow standard strategic protocols.')
-        ];
+        return json_decode($rawText, true);
     }
 }
