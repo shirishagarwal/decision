@@ -1,8 +1,8 @@
 <?php
 /**
  * File Path: decision.php
- * Description: The primary high-fidelity view for a strategic decision.
- * Includes problem context, options list, and the Strategic Stress Test (Pre-Mortem) engine.
+ * Description: The high-fidelity view for a strategic decision.
+ * Updated: Replaced manual nav with the global header include.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -10,7 +10,6 @@ requireLogin();
 $decisionId = $_GET['id'] ?? null;
 $pdo = getDbConnection();
 
-// Fetch Decision details with creator info
 try {
     $stmt = $pdo->prepare("
         SELECT d.*, u.name as creator_name, u.avatar_url 
@@ -26,12 +25,10 @@ try {
         exit;
     }
 
-    // Fetch Options (AI + Manual)
     $stmt = $pdo->prepare("SELECT * FROM decision_options WHERE decision_id = ? ORDER BY created_at ASC");
     $stmt->execute([$decisionId]);
     $options = $stmt->fetchAll();
 
-    // Fetch Existing Simulation result if it exists
     $stmt = $pdo->prepare("SELECT * FROM decision_simulations WHERE decision_id = ? LIMIT 1");
     $stmt->execute([$decisionId]);
     $simulation = $stmt->fetch();
@@ -51,25 +48,14 @@ try {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
         .premium-card { background: white; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border-radius: 32px; }
-        .gradient-text { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
 </head>
-<body class="selection:bg-indigo-100 min-h-screen">
+<body class="flex flex-col min-h-screen">
 
-    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-100 p-5 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <a href="/dashboard.php" class="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition font-bold text-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                Dashboard
-            </a>
-            <div class="flex items-center gap-4">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Live Session</span>
-                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            </div>
-        </div>
-    </nav>
+    <!-- Global Header -->
+    <?php include __DIR__ . '/includes/header.php'; ?>
 
-    <main class="max-w-7xl mx-auto py-12 px-6">
+    <main class="max-w-7xl mx-auto py-12 px-6 flex-grow">
         <div class="grid lg:grid-cols-3 gap-12">
             
             <!-- Left: Strategic Narrative -->
@@ -79,9 +65,9 @@ try {
                         <span class="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">
                             <?php echo htmlspecialchars($decision['category'] ?: 'Strategic'); ?>
                         </span>
-                        <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                            Vault ID: #<?php echo str_pad($decision['id'], 5, '0', STR_PAD_LEFT); ?>
-                        </span>
+                        <a href="/dashboard.php" class="text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-widest">
+                            ← Back to Dashboard
+                        </a>
                     </div>
                     <h1 class="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-8">
                         <?php echo htmlspecialchars($decision['title']); ?>
@@ -97,7 +83,6 @@ try {
                 <section>
                     <div class="flex justify-between items-end mb-8">
                         <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Evaluated Paths</h2>
-                        <span class="text-[10px] font-black text-indigo-600 uppercase"><?php echo count($options); ?> Options Recorded</span>
                     </div>
                     <div class="space-y-6">
                         <?php foreach($options as $opt): ?>
@@ -127,18 +112,17 @@ try {
                 <div class="p-8 premium-card bg-white">
                     <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Decision Lead</h3>
                     <div class="flex items-center gap-4">
-                        <img src="<?php echo $decision['avatar_url'] ?: 'https://ui-avatars.com/api/?name='.urlencode($decision['creator_name']); ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-slate-100">
+                        <img src="<?php echo $user['avatar_url'] ?: 'https://ui-avatars.com/api/?name='.urlencode($decision['creator_name']); ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-slate-100">
                         <div>
                             <div class="font-bold text-slate-900"><?php echo htmlspecialchars($decision['creator_name']); ?></div>
-                            <div class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Master Strategist</div>
+                            <div class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Decision Owner</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Strategic Stress Test (Pre-Mortem) -->
+                <!-- Simulation Component -->
                 <div class="sticky top-32">
                     <?php
-                        // We set the decision ID for the component
                         $targetDecisionId = $decision['id'];
                         include __DIR__ . '/components/simulator-ui.php';
                     ?>
@@ -147,9 +131,8 @@ try {
         </div>
     </main>
 
-    <footer class="py-20 text-center border-t border-slate-100">
-        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">DecisionVault Intelligence &bull; Secured with 256-bit Logic</p>
-    </footer>
+    <!-- Global Footer -->
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 
 </body>
 </html>
