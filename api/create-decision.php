@@ -1,53 +1,84 @@
 <?php
 /**
  * File Path: api/create-decision.php
- * Description: Processes the strategic decision form submission.
+ * Description: Backend for saving decisions. Uses output buffering to prevent malformed JSON.
  */
+ob_start(); // Prevent any accidental output/warnings from breaking the JSON
 require_once __DIR__ . '/../config.php';
 requireLogin();
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    ob_end_clean();
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-
-if (empty($input['title'])) {
+if (!$input || empty($input['title'])) {
+    ob_end_clean();
     http_response_code(400);
-    echo json_encode(['error' => 'Decision title is required']);
+    echo json_encode(['success' => false, 'error' => 'Title is required.']);
     exit;
 }
 
 $pdo = getDbConnection();
 $userId = $_SESSION['user_id'];
-$orgId = $_SESSION['current_org_id'];
 
 try {
+    // Verify Organization
+    $stmt = $pdo->prepare("
+        SELECT o.id FROM organizations o 
+        JOIN organization_members om ON o.id = om.organization_id 
+        WHERE om.user_id = ? 
+        LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $org = $stmt->fetch();
+
+    if (!$org) {
+        ob_end_clean();
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Organization not found. Refresh dashboard.']);
+        exit;
+    }
+
+    $orgId = $org['id'];
+    $_SESSION['current_org_id'] = $orgId;
+
     $pdo->beginTransaction();
 
-    // 1. Insert Decision
-    $stmt = $pdo->prepare("INSERT INTO decisions (organization_id, title, problem_statement, created_by) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$orgId, $input['title'], $input['problem'], $userId]);
+    $stmt = $pdo->prepare("
+        INSERT INTO decisions (organization_id, title, problem_statement, created_by, status) 
+        VALUES (?, ?, ?, ?, 'Proposed')
+    ");
+    $stmt->execute([$orgId, $input['title'], $input['problem'] ?? '', $userId]);
     $decisionId = $pdo->lastInsertId();
 
-    // 2. Insert Options (if any)
-    if (!empty($input['options'])) {
-        $stmt = $pdo->prepare("INSERT INTO decision_options (decision_id, name, description) VALUES (?, ?, ?)");
-        foreach ($input['options'] as $opt) {
-            if (empty($opt['name'])) continue;
-            $stmt->execute([$decisionId, $opt['name'], $opt['description']]);
+    if (!empty($input['options']) && is_array($input['options'])) {
+        $optStmt = $pdo->prepare("INSERT INTO decision_options (decision_id, name, description, is_ai_suggested) VALUES (?, ?, ?, ?)");
+        foreach ($input['options'] as $option) {
+            if (!empty($option['name'])) {
+                $optStmt->execute([
+                    $decisionId,
+                    $option['name'],
+                    $option['description'] ?? '',
+                    (isset($option['isAiGenerated']) && $option['isAiGenerated']) ? 1 : 0
+                ]);
+            }
         }
     }
 
     $pdo->commit();
+    
+    ob_end_clean();
     echo json_encode(['success' => true, 'decision_id' => $decisionId]);
 
 } catch (Exception $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    ob_end_clean();
     http_response_code(500);
-    echo json_encode(['error' => 'Failed to save decision: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
