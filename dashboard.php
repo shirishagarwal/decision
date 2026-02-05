@@ -10,6 +10,14 @@ requireLogin();
 $user = getCurrentUser();
 $pdo = getDbConnection();
 
+// CRITICAL FIX: If the session exists but the database record is missing (post-wipe),
+// we must clear the stale session and send them back to login.
+if (!$user) {
+    session_destroy();
+    header('Location: /index.php');
+    exit;
+}
+
 try {
     // 1. Fetch Organization
     $stmt = $pdo->prepare("
