@@ -15,7 +15,7 @@ function discoverLinks() {
     // Search back 100 days to ensure a deep pool of data
     $timestampLimit = time() - (100 * 24 * 60 * 60);
     
-    // Broadened keyword list. Algolia handles space as AND, so we use multiple separate queries.
+    // Broadened keyword list.
     $queries = [
         'strategic failure',
         'business collapse',
@@ -30,14 +30,20 @@ function discoverLinks() {
 
     $allHits = [];
     foreach ($queries as $q) {
-        $encodedQuery = urlencode($q);
-        // Broadened tags to include show_hn and ask_hn where post-mortems often land
-        $url = "https://hn.algolia.com/api/v1/search?query={$encodedQuery}&tags=(story,show_hn,ask_hn)&numericFilters=created_at_i>{$timestampLimit}&hitsPerPage=50";
+        // Properly encode all parameters to avoid 400 Bad Request errors
+        $params = [
+            'query' => $q,
+            'tags' => '(story,show_hn,ask_hn)',
+            'numericFilters' => 'created_at_i>' . $timestampLimit,
+            'hitsPerPage' => 50
+        ];
+        
+        $url = "https://hn.algolia.com/api/v1/search?" . http_build_query($params);
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'DecisionVaultDiscovery/2.5');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'DecisionVaultDiscovery/2.6');
         
         $response = curl_exec($ch);
         $error = curl_error($ch);
@@ -46,6 +52,9 @@ function discoverLinks() {
 
         if ($status !== 200) {
             echo "[Debug] API Error on query '{$q}': Status {$status}. {$error}\n";
+            if ($status === 400) {
+                echo "[Debug] Response: " . $response . "\n";
+            }
             continue;
         }
 
