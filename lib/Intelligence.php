@@ -1,56 +1,67 @@
 <?php
 /**
  * File Path: lib/Intelligence.php
- * Description: Real calculation of Decision Maturity and Intelligence stats.
+ * Description: Robust logic for calculating organizational strategic metrics.
  */
 
 class Intelligence {
     
     /**
-     * Calculates the Decision Maturity Index (DMI) out of 200.
-     * Logic:
-     * - Base: 20 pts
-     * - Per Decision Logged: +10 pts (Max 80)
-     * - Per Connector Active: +15 pts (Max 60)
-     * - Per Outcome Analysis: +20 pts (Max 40)
+     * Calculates the Decision Maturity Index (DMI).
+     * Formula based on data density, connectivity, and feedback loops.
      */
-    public static function calculateDMI($orgId) {
-        $pdo = getDbConnection();
-        $score = 20;
+    public static function calculateDMI($pdo, $orgId) {
+        if (!$orgId) return 0;
+        
+        $score = 20; // Baseline entry score
 
-        // Count Decisions
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ?");
-        $stmt->execute([$orgId]);
-        $decisionsCount = (int)$stmt->fetchColumn();
-        $score += min($decisionsCount * 10, 80);
+        try {
+            // 1. Data Density: +10 pts per unique decision artifact (Max 80)
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ?");
+            $stmt->execute([$orgId]);
+            $count = (int)$stmt->fetchColumn();
+            $score += min($count * 10, 80);
 
-        // Count Active Connectors
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM data_connectors WHERE organization_id = ? AND status = 'active'");
-        $stmt->execute([$orgId]);
-        $connectorsCount = (int)$stmt->fetchColumn();
-        $score += min($connectorsCount * 15, 60);
+            // 2. Connectivity: +15 pts per active intelligence connector (Max 60)
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM data_connectors WHERE organization_id = ? AND status = 'active'");
+            $stmt->execute([$orgId]);
+            $connCount = (int)$stmt->fetchColumn();
+            $score += min($connCount * 15, 60);
 
-        // Count Decisions with Outcomes (Learning loops)
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ? AND status = 'Closed'");
-        $stmt->execute([$orgId]);
-        $outcomesCount = (int)$stmt->fetchColumn();
-        $score += min($outcomesCount * 20, 40);
+            // 3. Feedback Velocity: +20 pts per 'Implemented/Closed' outcome (Max 40)
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ? AND status = 'Implemented'");
+            $stmt->execute([$orgId]);
+            $closedCount = (int)$stmt->fetchColumn();
+            $score += min($closedCount * 20, 40);
+
+        } catch (Exception $e) {
+            // Log error internally, return baseline to avoid 500
+            error_log("DMI Calculation Error: " . $e->getMessage());
+        }
 
         return $score;
     }
 
     /**
-     * Gets the total count of 'Scouted' intelligence patterns.
+     * Returns total count of strategic patterns ingested via the Scout engine.
      */
-    public static function getScoutedPatternCount() {
-        $pdo = getDbConnection();
-        return (int)$pdo->query("SELECT COUNT(*) FROM external_startup_failures")->fetchColumn();
+    public static function getScoutedPatternCount($pdo) {
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM external_startup_failures");
+            return (int)$stmt->fetchColumn();
+        } catch (Exception $e) {
+            return 0;
+        }
     }
 
+    /**
+     * Categorizes organizational performance relative to the sector.
+     */
     public static function getSectorRanking($score) {
-        if ($score > 160) return "Top 2%";
-        if ($score > 120) return "Top 12%";
-        if ($score > 80) return "Average";
-        return "Initial";
+        if ($score >= 170) return "Top 1% Global";
+        if ($score >= 140) return "Top 12% Sector";
+        if ($score >= 100) return "Upper Decile";
+        if ($score >= 60)  return "Standard Compliance";
+        return "Initial Architecture";
     }
 }
