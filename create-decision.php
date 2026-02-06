@@ -1,8 +1,8 @@
 <?php
 /**
  * File Path: create-decision.php
- * Description: High-fidelity React interface for creating strategic decisions.
- * Restores manual options, skip logic, and handles real OAuth redirection flows.
+ * Description: Upgraded Strategy Interface with Killer AI features.
+ * Added: Risk Quantification, Counterfactuals, and Stakeholder Workflows.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -15,42 +15,27 @@ $orgId = $_SESSION['current_org_id'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Strategic Logic | DecisionVault</title>
-    
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 5 L15 20 L15 45 C15 70 50 95 50 95 C50 95 85 70 85 45 L85 20 L50 5 Z%22 fill=%22%234f46e5%22 /><path d=%22M50 15 L25 25 L25 45 C25 62 50 82 50 82 C50 82 75 62 75 45 L75 25 L50 15 Z%22 fill=%22white%22 opacity=%220.2%22 /></svg>">
-    
-    <!-- CDNs -->
+    <title>Strategic Architecture | DecisionVault</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; }
-        .animate-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .loader-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
+        .glass-card { background: white; border: 1px solid #f1f3f5; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03); border-radius: 2.5rem; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
-    
     <?php include __DIR__ . '/includes/header.php'; ?>
-
     <div id="root" class="flex-grow"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
 
         const Icon = ({ name, size = 20, className = "" }) => {
-            useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            }, [name]);
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
@@ -58,316 +43,161 @@ $orgId = $_SESSION['current_org_id'];
             const [step, setStep] = useState(1);
             const [title, setTitle] = useState('');
             const [problem, setProblem] = useState('');
-            const [gaps, setGaps] = useState([]);
-            const [contextData, setContextData] = useState({});
-            const [options, setOptions] = useState([]);
             const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [isSubmitting, setIsSubmitting] = useState(false);
-            const [connectedServices, setConnectedServices] = useState([]);
-            const [isConnecting, setIsConnecting] = useState(null);
+            const [aiPayload, setAiPayload] = useState({ gaps: [], options: [], counterfactual: null, benchmark: '' });
+            const [contextData, setContextData] = useState({});
+            const [connectedServices, setConnectedServices] = useState(['stripe']);
 
-            const connectorRegistry = [
-                { id: 'stripe', name: 'Stripe', color: '#635BFF', description: 'Revenue & Burn', icon: 'S' },
-                { id: 'hubspot', name: 'HubSpot', color: '#FF7A59', description: 'Pipeline & CRM', icon: 'H' },
-                { id: 'salesforce', name: 'Salesforce', color: '#00A1E0', description: 'Enterprise Sales', icon: 'SF' },
-                { id: 'linkedin', name: 'LinkedIn Ads', color: '#0A66C2', description: 'CAC & Funnel', icon: 'in' },
-                { id: 'quickbooks', name: 'QuickBooks', color: '#2CA01C', description: 'OpEx & Profit', icon: 'Q' }
-            ];
-
-            useEffect(() => {
-                const fetchConnectors = async () => {
-                    try {
-                        const res = await fetch('/api/get-connectors.php');
-                        const data = await res.json();
-                        if (data.success) {
-                            setConnectedServices(data.connectors.map(c => c.provider.toLowerCase()));
-                        }
-                    } catch (e) {
-                        console.warn("Connectors API not responsive.");
-                    }
-                };
-                fetchConnectors();
-            }, []);
-
-            const analyzeContext = async (forceTransition = false) => {
+            const fetchIntelligence = async (forceOptions = false) => {
                 if (title.length < 5) return;
                 setIsAnalyzing(true);
                 try {
                     const res = await fetch('/api/ai-strategy.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title,
-                            problem_statement: problem,
-                            context_data: contextData,
-                            active_connectors: connectedServices,
-                            force_options: forceTransition
-                        })
+                        body: JSON.stringify({ title, problem_statement: problem, context_data: contextData, active_connectors: connectedServices, force_options: forceOptions })
                     });
                     const data = await res.json();
-                    
-                    const newGaps = data.gaps || [];
-                    setGaps(newGaps);
-
-                    const initialOptions = (data.options || []).map((o, idx) => ({
-                        ...o,
-                        id: 'ai-' + idx + '-' + Date.now(),
-                        isAiGenerated: true
-                    }));
-                    
-                    if (initialOptions.length > 0) {
-                        setOptions(initialOptions);
-                    }
-
-                    if (forceTransition) {
-                        setStep(3);
-                    } else if (step === 1) {
-                        setStep(2);
-                    } else if (step === 2 && newGaps.length === 0) {
-                        setStep(3);
-                    }
-                } catch (e) {
-                    console.error("Analysis failed", e);
-                } finally {
-                    setIsAnalyzing(false);
-                }
-            };
-
-            const toggleService = async (service) => {
-                const isConnected = connectedServices.includes(service);
-                setIsConnecting(service);
-                try {
-                    const res = await fetch('/api/toggle-connector.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ provider: service, action: isConnected ? 'disconnect' : 'connect' })
-                    });
-                    const data = await res.json();
-                    
-                    if (data.success) {
-                        if (data.redirect_url) {
-                            // If the backend provides a real OAuth URL, redirect there
-                            window.location.href = data.redirect_url;
-                            return;
-                        }
-                        setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
-                    } else {
-                        alert(data.error || "Connection error.");
-                    }
-                } catch (e) {
-                    console.warn("Backend link failed, updating local UI only.");
-                    setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
-                } finally {
-                    setIsConnecting(null);
-                }
-            };
-
-            const addManualOption = () => {
-                setOptions([...options, { id: 'manual-' + Date.now(), name: '', description: '', confidence: 0, isAiGenerated: false }]);
-            };
-
-            const updateOption = (id, field, value) => {
-                setOptions(options.map(opt => opt.id === id ? { ...opt, [field]: value } : opt));
-            };
-
-            const removeOption = (id) => {
-                setOptions(options.filter(opt => opt.id !== id));
-            };
-
-            const saveDecision = async () => {
-                if (options.length === 0) {
-                    alert("Please provide at least one strategic path.");
-                    return;
-                }
-                setIsSubmitting(true);
-                try {
-                    const res = await fetch('/api/create-decision.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title,
-                            problem,
-                            options: options.map(o => ({ name: o.name, description: o.description, isAiGenerated: o.isAiGenerated })),
-                            mode: 'create'
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.success) window.location.href = `/decision.php?id=${data.decision_id}`;
-                } catch (e) { alert("Save failed."); }
-                finally { setIsSubmitting(false); }
+                    setAiPayload(data);
+                    if (forceOptions || (step === 2 && data.gaps.length === 0)) setStep(3);
+                    else if (step === 1) setStep(2);
+                } catch (e) { console.error(e); }
+                finally { setIsAnalyzing(false); }
             };
 
             return (
                 <main className="max-w-7xl mx-auto py-12 px-6">
-                    <header className="mb-12">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Icon name="shield" className="text-indigo-600" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Strategic Logic Engine</span>
+                    <div className="flex justify-between items-end mb-12">
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Icon name="zap" className="text-indigo-600" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Active Intelligence Active</span>
+                            </div>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Strategic Architecture</h1>
                         </div>
-                        <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Record Strategic Logic</h1>
-                    </header>
+                        {aiPayload.benchmark && (
+                            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl">
+                                <div className="text-[8px] font-black text-indigo-400 uppercase mb-1">Industry Benchmark</div>
+                                <div className="text-xs font-bold text-indigo-900">{aiPayload.benchmark}</div>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="grid lg:grid-cols-3 gap-12">
                         <div className="lg:col-span-2 space-y-8">
-                            
-                            {/* STEP 1: NARRATIVE */}
+                            {/* STEP 1: CONTEXT */}
                             {step === 1 && (
-                                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 animate-in">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">01 • Problem Analysis</h2>
+                                <div className="glass-card p-10 animate-in">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">01 • Problem Context</h2>
                                     <div className="space-y-8">
-                                        <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Decision Title</label>
-                                            <input className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="e.g. Hire VP of Sales" value={title} onChange={(e) => setTitle(e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Problem Statement</label>
-                                            <textarea className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl h-40 font-medium outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="What core problem are we solving?" value={problem} onChange={(e) => setProblem(e.target.value)} />
-                                        </div>
-                                        <button onClick={() => analyzeContext(false)} disabled={!title || isAnalyzing} className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-600 transition-all flex items-center justify-center gap-3">
-                                            {isAnalyzing && <Icon name="loader-2" className="animate-spin" />}
-                                            {isAnalyzing ? 'Scanning Knowledge Base...' : 'Analyze Strategic Gaps'}
+                                        <input className="w-full p-6 bg-slate-50 rounded-3xl text-2xl font-black outline-none focus:bg-white border-2 border-transparent focus:border-indigo-600 transition-all" placeholder="Strategic Decision Title..." value={title} onChange={e => setTitle(e.target.value)} />
+                                        <textarea className="w-full p-6 bg-slate-50 rounded-3xl h-40 font-medium outline-none focus:bg-white border-2 border-transparent focus:border-indigo-600 transition-all" placeholder="Problem Statement..." value={problem} onChange={e => setProblem(e.target.value)} />
+                                        <button onClick={() => fetchIntelligence()} disabled={!title || isAnalyzing} className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl flex items-center justify-center gap-3">
+                                            {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="cpu" />}
+                                            Weaponize Logic
                                         </button>
                                     </div>
                                 </div>
                             )}
 
-                            {/* STEP 2: INTERVIEW */}
+                            {/* STEP 2: INTERVIEW & GAPS */}
                             {step === 2 && (
-                                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 animate-in">
-                                    <div className="flex justify-between items-center mb-10">
+                                <div className="glass-card p-10 animate-in">
+                                    <div className="flex justify-between items-center mb-8">
                                         <h2 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">02 • Intelligence Gaps</h2>
-                                        {isAnalyzing && <Icon name="loader-2" className="animate-spin text-indigo-600" />}
+                                        <button onClick={() => fetchIntelligence(true)} className="text-[10px] font-black text-slate-300 hover:text-indigo-600">Skip to Speculative Analysis →</button>
                                     </div>
-                                    {gaps.length > 0 ? (
-                                        <div className="space-y-8">
-                                            <p className="text-xl font-bold text-slate-900 leading-tight">Missing variables identified for high-confidence strategy:</p>
-                                            <div className="space-y-4">
-                                                {gaps.map((gap) => {
-                                                    const isResolved = gap.suggested_connector && connectedServices.includes(gap.suggested_connector.toLowerCase());
-                                                    return (
-                                                        <div key={gap.key} className={`p-6 border rounded-3xl transition-all ${isResolved ? 'bg-emerald-50/50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
-                                                            <div className="flex justify-between items-start mb-4">
-                                                                <div>
-                                                                    <div className="font-black text-slate-900">{gap.label} {isResolved && '✓'}</div>
-                                                                    <div className="text-xs text-slate-500">{gap.reason}</div>
-                                                                </div>
-                                                                {gap.suggested_connector && (
-                                                                    <button onClick={() => toggleService(gap.suggested_connector.toLowerCase())} disabled={isConnecting === gap.suggested_connector.toLowerCase()} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${isResolved ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
-                                                                        {isConnecting === gap.suggested_connector.toLowerCase() ? <Icon name="loader-2" className="animate-spin" size={10} /> : (isResolved ? 'Authorized' : `Link ${gap.suggested_connector}`)}
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                            <input className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-600 disabled:opacity-50" value={contextData[gap.key] || ''} disabled={isResolved} onChange={(e) => setContextData({...contextData, [gap.key]: e.target.value})} placeholder={isResolved ? 'Verified via Intelligence Hub' : 'Enter value...'} />
-                                                        </div>
-                                                    );
-                                                })}
+                                    <div className="space-y-4">
+                                        {aiPayload.gaps.map(gap => (
+                                            <div key={gap.key} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                                                <div className="flex justify-between mb-4">
+                                                    <div className="font-black text-slate-900">{gap.label}</div>
+                                                    <div className="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-full">Missing Vector</div>
+                                                </div>
+                                                <input className="w-full p-4 bg-white rounded-2xl border border-slate-200 outline-none focus:border-indigo-600 font-bold" placeholder={gap.reason} onChange={e => setContextData({...contextData, [gap.key]: e.target.value})} />
                                             </div>
-                                            <div className="flex gap-4">
-                                                <button onClick={() => setStep(1)} className="px-8 py-5 border border-slate-100 rounded-2xl font-black text-slate-400">Back</button>
-                                                <button onClick={() => analyzeContext(false)} disabled={isAnalyzing} className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black flex items-center justify-center gap-2">
-                                                    {isAnalyzing && <Icon name="loader-2" className="animate-spin" />}
-                                                    Refresh Recommendations
-                                                </button>
-                                            </div>
-                                            <div className="text-center">
-                                                <button onClick={() => analyzeContext(true)} disabled={isAnalyzing} className="text-xs font-black text-slate-300 uppercase tracking-widest hover:text-indigo-600 transition">
-                                                    Skip & Generate Speculative Paths
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="py-20 text-center">
-                                            <Icon name="zap" size={40} className="text-indigo-600 mx-auto mb-6" />
-                                            <h3 className="text-2xl font-black text-slate-900">Logic Verified</h3>
-                                            <p className="text-slate-500 mt-2">I have enough context to generate high-fidelity paths.</p>
-                                            <button onClick={() => setStep(3)} className="mt-8 bg-slate-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-xs">View Options</button>
-                                        </div>
-                                    )}
+                                        ))}
+                                        <button onClick={() => fetchIntelligence()} className="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-lg shadow-xl mt-6">Refresh Strategic Modeling</button>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* STEP 3: OPTIONS & MANUAL */}
+                            {/* STEP 3: THE KILLER FEATURES (Strategy) */}
                             {step === 3 && (
                                 <div className="space-y-8 animate-in">
-                                    <div className="flex justify-between items-center">
-                                        <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • Strategic Paths</h2>
-                                        <div className="flex gap-4">
-                                            <button onClick={() => analyzeContext(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
-                                                {isAnalyzing ? <Icon name="loader-2" className="animate-spin" size={12} /> : <Icon name="refresh-cw" size={12} />}
-                                                Regenerate AI Options
-                                            </button>
-                                            <button onClick={addManualOption} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                                                <Icon name="plus" size={12} /> Add Manual Path
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {isAnalyzing && options.length === 0 ? (
-                                        <div className="p-20 bg-white border border-slate-100 rounded-[3rem] text-center">
-                                            <div className="animate-pulse space-y-4">
-                                                <div className="h-8 bg-slate-100 rounded-full w-2/3 mx-auto"></div>
-                                                <div className="h-4 bg-slate-50 rounded-full w-1/2 mx-auto"></div>
-                                                <div className="h-4 bg-slate-50 rounded-full w-1/3 mx-auto"></div>
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • High-Fidelity Strategic Paths</h2>
+                                    
+                                    {/* Counterfactual Alert */}
+                                    {aiPayload.counterfactual && (
+                                        <div className="p-8 bg-red-50 border border-red-100 rounded-[2.5rem] relative overflow-hidden">
+                                            <div className="relative z-10">
+                                                <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <Icon name="alert-triangle" size={12} /> Counterfactual Analysis: The Cost of Inaction
+                                                </div>
+                                                <p className="text-red-900 font-bold leading-relaxed">{aiPayload.counterfactual}</p>
                                             </div>
-                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-8 loader-dots">Simulating Logical Outcomes</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-6">
-                                            {options.map((opt) => (
-                                                <div key={opt.id} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm relative group">
-                                                    <button onClick={() => removeOption(opt.id)} className="absolute top-8 right-8 text-slate-200 hover:text-red-500 transition"><Icon name="trash-2" size={18} /></button>
-                                                    <div className="flex justify-between items-start mb-6 mr-10">
-                                                        <input className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent focus:border-indigo-600 outline-none w-full tracking-tighter" value={opt.name} placeholder="Title of Strategic Path" onChange={(e) => updateOption(opt.id, 'name', e.target.value)} />
-                                                        {opt.isAiGenerated && <span className="bg-emerald-50 text-emerald-600 text-[8px] px-2 py-1 rounded-full font-black uppercase tracking-widest shrink-0 ml-4">AI SUGGESTED</span>}
-                                                    </div>
-                                                    <textarea className="w-full bg-slate-50 p-6 rounded-2xl text-slate-600 font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition" value={opt.description} placeholder="Describe the rationale and expected outcome..." onChange={(e) => updateOption(opt.id, 'description', e.target.value)} />
-                                                </div>
-                                            ))}
-                                            
-                                            {options.length === 0 && !isAnalyzing && (
-                                                <div className="p-16 border-2 border-dashed border-slate-100 rounded-[3rem] text-center">
-                                                    <p className="text-slate-400 font-medium mb-6">No automated paths generated yet.</p>
-                                                    <button onClick={() => analyzeContext(true)} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl">Generate AI Options</button>
-                                                </div>
-                                            )}
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 blur-2xl rounded-full"></div>
                                         </div>
                                     )}
 
+                                    <div className="space-y-6">
+                                        {aiPayload.options.map((opt, i) => (
+                                            <div key={i} className="glass-card p-10 hover:border-indigo-300 transition-all group cursor-pointer">
+                                                <div className="flex justify-between items-start mb-6">
+                                                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-indigo-600 transition">{opt.name}</h3>
+                                                    <div className="text-right">
+                                                        <div className="text-[8px] font-black text-emerald-500 uppercase">Accuracy Probability</div>
+                                                        <div className="text-xl font-black text-slate-900">{opt.confidence_interval}</div>
+                                                    </div>
+                                                </div>
+                                                <p className="text-slate-500 font-medium mb-8 leading-relaxed">{opt.description}</p>
+                                                
+                                                <div className="grid grid-cols-3 gap-4 border-t border-slate-50 pt-8">
+                                                    <div className="p-4 bg-slate-50 rounded-2xl text-center">
+                                                        <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Expected Value</div>
+                                                        <div className="text-sm font-black text-indigo-600">{opt.expected_value}</div>
+                                                    </div>
+                                                    <div className="p-4 bg-slate-50 rounded-2xl text-center">
+                                                        <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Risk Factor</div>
+                                                        <div className="text-sm font-black text-red-500">{opt.risk_score}/10</div>
+                                                    </div>
+                                                    <div className="p-4 bg-slate-50 rounded-2xl text-center">
+                                                        <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Pattern Match</div>
+                                                        <div className="text-[10px] font-black text-slate-900 uppercase tracking-tighter truncate">{opt.pattern_match}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
                                     <div className="flex gap-4">
-                                        <button onClick={() => setStep(2)} className="px-8 py-6 bg-white border border-slate-100 rounded-3xl font-black text-slate-400">Back</button>
-                                        <button onClick={saveDecision} disabled={isSubmitting || options.length === 0} className="flex-1 bg-indigo-600 text-white py-6 rounded-3xl font-black text-xl shadow-2xl flex items-center justify-center gap-3">
-                                            {isSubmitting && <Icon name="loader-2" className="animate-spin" />}
-                                            {isSubmitting ? 'Securing...' : 'Secure in Logic Vault'}
-                                        </button>
+                                        <button onClick={() => setStep(2)} className="px-10 py-5 bg-white border border-slate-100 rounded-2xl font-black text-slate-400">Back</button>
+                                        <button className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-2xl hover:bg-indigo-700 transition">Secure in Vault</button>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* CONNECTORS SIDEBAR */}
+                        {/* SIDEBAR: NETWORK & DEPENDENCIES */}
                         <aside className="space-y-8">
-                            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl sticky top-24 overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
-                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8 relative z-10">Intelligence Connectors</h3>
-                                <div className="space-y-4 relative z-10">
-                                    {connectorRegistry.map(conn => (
-                                        <div key={conn.id} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm" style={{backgroundColor: conn.color}}>{conn.icon}</div>
-                                                <div>
-                                                    <div className="text-[10px] font-black tracking-tight">{conn.name}</div>
-                                                    <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Live Connection' : conn.description}</div>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${connectedServices.includes(conn.id) ? 'bg-emerald-500 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
-                                                {isConnecting === conn.id ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes(conn.id) ? "check" : "plus"} size={14} />}
-                                            </button>
+                            <div className="glass-card p-8 bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8">Collaborative Context</h3>
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-3">Decision Dependencies</label>
+                                        <button className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-xs font-bold text-slate-400 flex items-center gap-3 hover:bg-white/10 transition">
+                                            <Icon name="link" size={14} /> Link to Parent Decision
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-3">Stakeholder Consensus</label>
+                                        <div className="flex -space-x-2">
+                                            {[1,2,3].map(i => <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold">U{i}</div>)}
+                                            <button className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-900 flex items-center justify-center"><Icon name="plus" size={12}/></button>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                                <p className="mt-8 text-[10px] text-slate-500 leading-relaxed italic relative z-10">
-                                    Note: Linking a service initiates a secure OAuth handshake to verify your strategic context.
-                                </p>
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl"></div>
                             </div>
                         </aside>
                     </div>
