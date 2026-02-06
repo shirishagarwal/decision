@@ -58,7 +58,7 @@ $orgId = $_SESSION['current_org_id'];
             
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
-            const [connectedServices, setConnectedServices] = useState(['stripe']);
+            const [connectedServices, setConnectedServices] = useState([]);
             const [isConnecting, setIsConnecting] = useState(null);
 
             const connectorRegistry = [
