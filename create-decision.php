@@ -1,8 +1,8 @@
 <?php
 /**
  * File Path: create-decision.php
- * Description: Restored high-fidelity interface with integrated killer features.
- * Features: 3-step flow, Manual Path Editing, Risk Quantification, and Data Connectors.
+ * Description: Restored and Redesigned High-Fidelity Strategic Interface.
+ * Restores: 3-step flow, Manual Options, Skip Logic, and adds Collaborators.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -17,10 +17,6 @@ $orgId = $_SESSION['current_org_id'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Strategic Architecture | DecisionVault</title>
     
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 5 L15 20 L15 45 C15 70 50 95 50 95 C50 95 85 70 85 45 L85 20 L50 5 Z%22 fill=%22%234f46e5%22 /><path d=%22M50 15 L25 25 L25 45 C25 62 50 82 50 82 C50 82 75 62 75 45 L75 25 L50 15 Z%22 fill=%22white%22 opacity=%220.2%22 /></svg>">
-    
-    <!-- CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -32,9 +28,9 @@ $orgId = $_SESSION['current_org_id'];
         body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; color: #0f172a; }
         .animate-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .premium-card { background: white; border: 1px solid #f1f3f5; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03); border-radius: 3rem; }
         .loader-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
         @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
-        .premium-card { background: white; border: 1px solid #f1f3f5; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03); border-radius: 3rem; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -55,13 +51,14 @@ $orgId = $_SESSION['current_org_id'];
             const [step, setStep] = useState(1);
             const [title, setTitle] = useState('');
             const [problem, setProblem] = useState('');
+            const [stakeholders, setStakeholders] = useState('');
             const [gaps, setGaps] = useState([]);
             const [contextData, setContextData] = useState({});
             const [options, setOptions] = useState([]);
             const [aiPayload, setAiPayload] = useState({ counterfactual: null, benchmark: '' });
+            
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
-            
             const [connectedServices, setConnectedServices] = useState(['stripe']);
             const [isConnecting, setIsConnecting] = useState(null);
 
@@ -72,18 +69,7 @@ $orgId = $_SESSION['current_org_id'];
                 { id: 'linkedin', name: 'LinkedIn Ads', color: '#0A66C2', description: 'CAC & Funnel', icon: 'in' }
             ];
 
-            useEffect(() => {
-                const fetchConnectors = async () => {
-                    try {
-                        const res = await fetch('/api/get-connectors.php');
-                        const data = await res.json();
-                        if (data.success) setConnectedServices(data.connectors.map(c => c.provider.toLowerCase()));
-                    } catch (e) { console.warn("Syncing offline."); }
-                };
-                fetchConnectors();
-            }, []);
-
-            const analyzeContext = async (forceOptions = false) => {
+            const fetchIntelligence = async (forceOptions = false) => {
                 if (title.length < 5) return;
                 setIsAnalyzing(true);
                 try {
@@ -93,6 +79,7 @@ $orgId = $_SESSION['current_org_id'];
                         body: JSON.stringify({
                             title,
                             problem_statement: problem,
+                            stakeholders: stakeholders.split(',').map(s => s.trim()),
                             context_data: contextData,
                             active_connectors: connectedServices,
                             force_options: forceOptions
@@ -201,26 +188,30 @@ $orgId = $_SESSION['current_org_id'];
                     <div className="grid lg:grid-cols-3 gap-12">
                         <div className="lg:col-span-2 space-y-8">
                             
-                            {/* STEP 1: NARRATIVE */}
+                            {/* STEP 1: CONTEXT & COLLABORATORS */}
                             {step === 1 && (
                                 <div className="premium-card p-10 animate-in">
                                     <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">01 • Problem Analysis</h2>
                                     <div className="space-y-8">
                                         <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">The Decision Title</label>
+                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Decision Title</label>
                                             <input className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="e.g. Hire VP of Sales" value={title} onChange={(e) => setTitle(e.target.value)} />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Strategic Problem Statement</label>
-                                            <textarea className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl h-40 font-medium outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="What core friction is driving this choice?" value={problem} onChange={(e) => setProblem(e.target.value)} />
+                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Problem Statement</label>
+                                            <textarea className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl h-32 font-medium outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="What core friction is driving this choice?" value={problem} onChange={(e) => setProblem(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Stakeholders (Emails, comma separated)</label>
+                                            <input className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl text-sm font-bold outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="ceo@company.com, cto@company.com..." value={stakeholders} onChange={(e) => setStakeholders(e.target.value)} />
                                         </div>
                                         <button
-                                            onClick={() => analyzeContext(false)}
+                                            onClick={() => fetchIntelligence()}
                                             disabled={!title || isAnalyzing}
                                             className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                         >
                                             {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="cpu" />}
-                                            {isAnalyzing ? 'Scanning External Failures...' : 'Weaponize Logic'}
+                                            {isAnalyzing ? 'Scanning Knowledge Base...' : 'Weaponize Logic'}
                                         </button>
                                     </div>
                                 </div>
@@ -236,7 +227,7 @@ $orgId = $_SESSION['current_org_id'];
 
                                     {gaps.length > 0 ? (
                                         <div className="space-y-8">
-                                            <p className="text-xl font-bold text-slate-900 leading-tight">Identify missing variables for a high-confidence recommendation:</p>
+                                            <p className="text-xl font-bold text-slate-900 leading-tight">Missing variables identified for high-confidence recommendation:</p>
                                             <div className="space-y-4">
                                                 {gaps.map((gap) => {
                                                     const isResolved = gap.suggested_connector && connectedServices.includes(gap.suggested_connector.toLowerCase());
@@ -260,13 +251,13 @@ $orgId = $_SESSION['current_org_id'];
                                             </div>
                                             <div className="flex gap-4">
                                                 <button onClick={() => setStep(1)} className="px-8 py-5 border border-slate-100 rounded-2xl font-black text-slate-400">Back</button>
-                                                <button onClick={() => analyzeContext(false)} disabled={isAnalyzing} className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black flex items-center justify-center gap-2">
+                                                <button onClick={() => fetchIntelligence()} disabled={isAnalyzing} className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black flex items-center justify-center gap-2">
                                                     {isAnalyzing && <Icon name="loader-2" className="animate-spin" />}
                                                     Update Modeling
                                                 </button>
                                             </div>
                                             <div className="text-center">
-                                                <button onClick={() => analyzeContext(true)} disabled={isAnalyzing} className="text-xs font-black text-slate-300 uppercase tracking-widest hover:text-indigo-600 transition">Skip & View Speculative Paths</button>
+                                                <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-xs font-black text-slate-300 uppercase tracking-widest hover:text-indigo-600 transition">Skip & View Speculative Paths</button>
                                             </div>
                                         </div>
                                     ) : (
@@ -279,13 +270,13 @@ $orgId = $_SESSION['current_org_id'];
                                 </div>
                             )}
 
-                            {/* STEP 3: PATHS */}
+                            {/* STEP 3: PATHS & MANUAL EDITING */}
                             {step === 3 && (
                                 <div className="space-y-8 animate-in">
                                     <div className="flex justify-between items-center">
                                         <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • Strategic Architecture</h2>
                                         <div className="flex gap-4">
-                                            <button onClick={() => analyzeContext(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
+                                            <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
                                                 <Icon name="refresh-cw" size={12} className={isAnalyzing ? 'animate-spin' : ''} /> Regenerate
                                             </button>
                                             <button onClick={addManualOption} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
@@ -297,7 +288,7 @@ $orgId = $_SESSION['current_org_id'];
                                     {aiPayload.counterfactual && (
                                         <div className="p-8 bg-red-50 border border-red-100 rounded-[3rem] relative overflow-hidden">
                                             <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                <Icon name="alert-circle" size={12} /> The Cost of Inaction
+                                                <Icon name="alert-circle" size={12} /> The Cost of Inaction (Counterfactual)
                                             </div>
                                             <p className="text-red-900 font-bold leading-relaxed">{aiPayload.counterfactual}</p>
                                         </div>
@@ -349,29 +340,47 @@ $orgId = $_SESSION['current_org_id'];
                             )}
                         </div>
 
-                        {/* CONNECTORS SIDEBAR */}
+                        {/* SIDEBAR: STAKEHOLDERS & CONNECTORS */}
                         <aside className="space-y-8">
-                            <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl sticky top-24">
-                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8">Data Connectors</h3>
-                                <div className="space-y-4">
-                                    {connectorRegistry.map(conn => (
-                                        <div key={conn.id} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm" style={{backgroundColor: conn.color}}>{conn.icon}</div>
-                                                <div>
-                                                    <div className="text-[10px] font-black tracking-tight">{conn.name}</div>
-                                                    <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Synced' : 'Inactive'}</div>
+                            <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl sticky top-24 overflow-hidden relative">
+                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8 relative z-10">Decision Infrastructure</h3>
+                                <div className="space-y-8 relative z-10">
+                                    
+                                    {/* Stakeholders View */}
+                                    <div>
+                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-4">Active Collaborators</div>
+                                        <div className="flex -space-x-2">
+                                            {stakeholders.split(',').filter(s => s.trim()).map((s, i) => (
+                                                <div key={i} className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold" title={s.trim()}>
+                                                    {s.trim().charAt(0).toUpperCase()}
                                                 </div>
-                                            </div>
-                                            <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${connectedServices.includes(conn.id) ? 'bg-emerald-500 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
-                                                {isConnecting === conn.id ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes(conn.id) ? "check" : "plus"} size={14} />}
+                                            ))}
+                                            <button onClick={() => setStep(1)} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition">
+                                                <Icon name="plus" size={12} />
                                             </button>
                                         </div>
-                                    ))}
+                                    </div>
+
+                                    {/* Connectors */}
+                                    <div className="space-y-4">
+                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Intelligence Hub</div>
+                                        {connectorRegistry.map(conn => (
+                                            <div key={conn.id} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm" style={{backgroundColor: conn.color}}>{conn.icon}</div>
+                                                    <div>
+                                                        <div className="text-[10px] font-black tracking-tight">{conn.name}</div>
+                                                        <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Synced' : 'Inactive'}</div>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${connectedServices.includes(conn.id) ? 'bg-emerald-500 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
+                                                    {isConnecting === conn.id ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes(conn.id) ? "check" : "plus"} size={14} />}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="mt-8 p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                    <p className="text-[9px] text-indigo-200 leading-relaxed font-bold">Connecting services automatically verifies intelligence variables during strategic modeling.</p>
-                                </div>
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl"></div>
                             </div>
                         </aside>
                     </div>
