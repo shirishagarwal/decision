@@ -32,6 +32,8 @@ $orgId = $_SESSION['current_org_id'];
         body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; }
         .animate-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .loader-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -62,6 +64,10 @@ $orgId = $_SESSION['current_org_id'];
             const [options, setOptions] = useState([]);
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
+            
+            // Mock Connector State
+            const [connectedServices, setConnectedServices] = useState(['stripe']); // Stripe is active by default
+            const [isConnecting, setIsConnecting] = useState(null); // 'stripe' or 'hubspot'
 
             const analyzeContext = async () => {
                 if (title.length < 5) return;
@@ -70,28 +76,39 @@ $orgId = $_SESSION['current_org_id'];
                     const res = await fetch('/api/ai-strategy.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title, problem_statement: problem, context_data: contextData })
+                        body: JSON.stringify({
+                            title,
+                            problem_statement: problem,
+                            context_data: contextData,
+                            active_connectors: connectedServices
+                        })
                     });
                     const data = await res.json();
                     setGaps(data.gaps || []);
                     setOptions(data.options || []);
+                    setStep(2); // Only move to step 2 after we have results
                 } catch (e) {
-                    console.error("Analysis failed");
+                    console.error("Analysis failed", e);
+                    alert("The AI Intelligence engine is currently unavailable. Please try again in a moment.");
                 } finally {
                     setIsAnalyzing(false);
                 }
             };
 
-            const handleNext = () => {
-                if (step === 1) {
-                    analyzeContext();
-                    setStep(2);
-                } else if (step === 2) {
-                    setStep(3);
+            const toggleService = (service) => {
+                if (connectedServices.includes(service)) {
+                    setConnectedServices(connectedServices.filter(s => s !== service));
+                } else {
+                    setIsConnecting(service);
+                    // Simulate OAuth delay
+                    setTimeout(() => {
+                        setConnectedServices([...connectedServices, service]);
+                        setIsConnecting(null);
+                    }, 1500);
                 }
             };
 
-            const saveDecision = async (selectedOption = null) => {
+            const saveDecision = async () => {
                 setIsSubmitting(true);
                 try {
                     const res = await fetch('/api/create-decision.php', {
@@ -137,7 +154,10 @@ $orgId = $_SESSION['current_org_id'];
                             {/* STEP 1: TITLE & PROBLEM */}
                             {step === 1 && (
                                 <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 animate-in">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">01 • Narrative Context</h2>
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">01 • Narrative Context</h2>
+                                        {isAnalyzing && <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest loader-dots">Analyzing Failure Vectors</span>}
+                                    </div>
                                     <div className="space-y-8">
                                         <div>
                                             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">The Decision Title</label>
@@ -145,6 +165,7 @@ $orgId = $_SESSION['current_org_id'];
                                                 className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all"
                                                 placeholder="e.g. Hire VP of Sales"
                                                 value={title}
+                                                disabled={isAnalyzing}
                                                 onChange={(e) => setTitle(e.target.value)}
                                             />
                                         </div>
@@ -154,15 +175,17 @@ $orgId = $_SESSION['current_org_id'];
                                                 className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl h-40 font-medium outline-none focus:border-indigo-600 focus:bg-white transition-all"
                                                 placeholder="What is the ground truth driving this decision?"
                                                 value={problem}
+                                                disabled={isAnalyzing}
                                                 onChange={(e) => setProblem(e.target.value)}
                                             />
                                         </div>
                                         <button
-                                            onClick={handleNext}
-                                            disabled={!title || title.length < 5}
-                                            className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-600 transition-all disabled:opacity-50"
+                                            onClick={analyzeContext}
+                                            disabled={!title || title.length < 5 || isAnalyzing}
+                                            className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
                                         >
-                                            Analyze Intelligence Gaps
+                                            {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : null}
+                                            {isAnalyzing ? 'Scanning External Failures...' : 'Analyze Intelligence Gaps'}
                                         </button>
                                     </div>
                                 </div>
@@ -179,7 +202,7 @@ $orgId = $_SESSION['current_org_id'];
                                     {!isAnalyzing && gaps.length > 0 ? (
                                         <div className="space-y-8">
                                             <p className="text-xl font-bold text-slate-900 leading-tight">
-                                                To provide a high-confidence recommendation, I need the following variables:
+                                                To provide a high-confidence recommendation, the AI requires the following variables:
                                             </p>
                                             <div className="space-y-4">
                                                 {gaps.map((gap) => (
@@ -190,8 +213,12 @@ $orgId = $_SESSION['current_org_id'];
                                                                 <div className="text-xs text-slate-500 font-medium">{gap.reason}</div>
                                                             </div>
                                                             {gap.suggested_connector && (
-                                                                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-tighter hover:bg-indigo-100 transition">
-                                                                    <Icon name="link" size={12} /> Connect {gap.suggested_connector}
+                                                                <button
+                                                                    onClick={() => toggleService(gap.suggested_connector.toLowerCase())}
+                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter transition ${connectedServices.includes(gap.suggested_connector.toLowerCase()) ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                                                                >
+                                                                    <Icon name={connectedServices.includes(gap.suggested_connector.toLowerCase()) ? "check" : "link"} size={12} />
+                                                                    {connectedServices.includes(gap.suggested_connector.toLowerCase()) ? "Linked" : `Connect ${gap.suggested_connector}`}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -204,21 +231,25 @@ $orgId = $_SESSION['current_org_id'];
                                                     </div>
                                                 ))}
                                             </div>
-                                            <button
-                                                onClick={analyzeContext}
-                                                className="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-lg shadow-xl hover:bg-indigo-700 transition-all"
-                                            >
-                                                Update Recommendations
-                                            </button>
+                                            <div className="flex gap-4">
+                                                <button onClick={() => setStep(1)} className="px-10 py-5 bg-white border border-slate-100 rounded-2xl font-black text-slate-400 text-sm hover:bg-slate-50 transition">Back</button>
+                                                <button
+                                                    onClick={analyzeContext}
+                                                    className="flex-1 bg-indigo-600 text-white py-6 rounded-2xl font-black text-lg shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-3"
+                                                >
+                                                    {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="zap" />}
+                                                    Update Recommendations
+                                                </button>
+                                            </div>
                                             <div className="text-center">
-                                                <button onClick={() => setStep(3)} className="text-xs font-bold text-slate-400 hover:text-indigo-600 uppercase tracking-widest transition">Skip and view current options</button>
+                                                <button onClick={() => setStep(3)} className="text-xs font-bold text-slate-400 hover:text-indigo-600 uppercase tracking-widest transition">Skip and view speculative options</button>
                                             </div>
                                         </div>
                                     ) : !isAnalyzing && (
                                         <div className="py-20 text-center">
                                             <Icon name="zap" size={48} className="text-indigo-600 mx-auto mb-6 animate-pulse" />
                                             <h3 className="text-2xl font-black text-slate-900">Intelligence Baseline Met</h3>
-                                            <p className="text-slate-500 font-medium mt-2">I have enough context to generate high-fidelity paths.</p>
+                                            <p className="text-slate-500 font-medium mt-2">The AI has verified your current data sources and context as sufficient.</p>
                                             <button onClick={() => setStep(3)} className="mt-8 bg-slate-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-xs">View Options</button>
                                         </div>
                                     )}
@@ -242,7 +273,7 @@ $orgId = $_SESSION['current_org_id'];
                                         </div>
                                     )) : (
                                         <div className="p-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Generating paths...</p>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Generating speculative paths based on limited data...</p>
                                         </div>
                                     )}
                                     <div className="flex gap-4 pt-10">
@@ -262,27 +293,49 @@ $orgId = $_SESSION['current_org_id'];
 
                         {/* SIDEBAR: ACTIVE CONNECTORS */}
                         <aside className="space-y-8">
-                            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl">
-                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-8">Active Context Sources</h3>
+                            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl sticky top-24">
+                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-8">Intelligence Data Connectors</h3>
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                                    {/* Stripe Connector */}
+                                    <div className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition-all ${connectedServices.includes('stripe') ? 'border-emerald-500/30' : 'border-white/10'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold">S</div>
-                                            <div className="text-xs font-bold">Stripe</div>
+                                            <div className="w-8 h-8 bg-[#635BFF] rounded-lg flex items-center justify-center font-bold text-white">S</div>
+                                            <div>
+                                                <div className="text-xs font-bold">Stripe</div>
+                                                <div className="text-[8px] font-black uppercase text-slate-500">Revenue & Burn</div>
+                                            </div>
                                         </div>
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                        <button
+                                            onClick={() => toggleService('stripe')}
+                                            className={`w-6 h-6 rounded-full flex items-center justify-center transition ${connectedServices.includes('stripe') ? 'bg-emerald-500' : 'bg-white/10 hover:bg-white/20'}`}
+                                        >
+                                            {isConnecting === 'stripe' ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes('stripe') ? "check" : "plus"} size={12} />}
+                                        </button>
                                     </div>
-                                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 opacity-50 grayscale">
+
+                                    {/* HubSpot Connector */}
+                                    <div className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition-all ${connectedServices.includes('hubspot') ? 'border-emerald-500/30' : 'border-white/10'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center font-bold text-white">H</div>
-                                            <div className="text-xs font-bold">HubSpot</div>
+                                            <div className="w-8 h-8 bg-[#FF7A59] rounded-lg flex items-center justify-center font-bold text-white">H</div>
+                                            <div>
+                                                <div className="text-xs font-bold">HubSpot</div>
+                                                <div className="text-[8px] font-black uppercase text-slate-500">Pipeline & CRM</div>
+                                            </div>
                                         </div>
-                                        <div className="text-[8px] font-black uppercase tracking-tighter">Disconnected</div>
+                                        <button
+                                            onClick={() => toggleService('hubspot')}
+                                            className={`w-6 h-6 rounded-full flex items-center justify-center transition ${connectedServices.includes('hubspot') ? 'bg-emerald-500' : 'bg-white/10 hover:bg-white/20'}`}
+                                        >
+                                            {isConnecting === 'hubspot' ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes('hubspot') ? "check" : "plus"} size={12} />}
+                                        </button>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-slate-500 mt-8 leading-relaxed font-medium">
-                                    Connect your business stack to automatically resolve Intelligence Gaps.
-                                </p>
+                                <div className="mt-8 p-4 bg-indigo-500/10 rounded-2xl">
+                                    <p className="text-[10px] text-indigo-200 leading-relaxed font-bold">
+                                        <Icon name="info" size={12} className="inline mr-1 mb-0.5" />
+                                        Linked services automatically populate strategic variables during the Intelligence Interview.
+                                    </p>
+                                </div>
                             </div>
                         </aside>
                     </div>
