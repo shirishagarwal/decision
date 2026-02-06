@@ -2,7 +2,7 @@
 /**
  * File Path: create-decision.php
  * Description: High-fidelity React interface for creating strategic decisions.
- * Restores manual options, skip logic, and data connector persistence.
+ * Restores manual options, skip logic, and handles real OAuth redirection flows.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -83,16 +83,12 @@ $orgId = $_SESSION['current_org_id'];
                             setConnectedServices(data.connectors.map(c => c.provider.toLowerCase()));
                         }
                     } catch (e) {
-                        console.warn("Connectors API not responsive, defaulting to local state.");
+                        console.warn("Connectors API not responsive.");
                     }
                 };
                 fetchConnectors();
             }, []);
 
-            /**
-             * Analyzes context and fetches options.
-             * @param {boolean} forceTransition - If true, force move to Step 3 regardless of gaps.
-             */
             const analyzeContext = async (forceTransition = false) => {
                 if (title.length < 5) return;
                 setIsAnalyzing(true);
@@ -105,7 +101,7 @@ $orgId = $_SESSION['current_org_id'];
                             problem_statement: problem,
                             context_data: contextData,
                             active_connectors: connectedServices,
-                            force_options: forceTransition // Tell the backend we definitely want options now
+                            force_options: forceTransition
                         })
                     });
                     const data = await res.json();
@@ -119,7 +115,6 @@ $orgId = $_SESSION['current_org_id'];
                         isAiGenerated: true
                     }));
                     
-                    // Only update options if we actually got new ones from the AI
                     if (initialOptions.length > 0) {
                         setOptions(initialOptions);
                     }
@@ -129,7 +124,6 @@ $orgId = $_SESSION['current_org_id'];
                     } else if (step === 1) {
                         setStep(2);
                     } else if (step === 2 && newGaps.length === 0) {
-                        // If we are in the interview and gaps are cleared, go to strategy
                         setStep(3);
                     }
                 } catch (e) {
@@ -149,8 +143,16 @@ $orgId = $_SESSION['current_org_id'];
                         body: JSON.stringify({ provider: service, action: isConnected ? 'disconnect' : 'connect' })
                     });
                     const data = await res.json();
+                    
                     if (data.success) {
+                        if (data.redirect_url) {
+                            // If the backend provides a real OAuth URL, redirect there
+                            window.location.href = data.redirect_url;
+                            return;
+                        }
                         setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
+                    } else {
+                        alert(data.error || "Connection error.");
                     }
                 } catch (e) {
                     console.warn("Backend link failed, updating local UI only.");
@@ -215,7 +217,7 @@ $orgId = $_SESSION['current_org_id'];
                                     <div className="space-y-8">
                                         <div>
                                             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Decision Title</label>
-                                            <input className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="e.g. Expand into UK Market" value={title} onChange={(e) => setTitle(e.target.value)} />
+                                            <input className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="e.g. Hire VP of Sales" value={title} onChange={(e) => setTitle(e.target.value)} />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Problem Statement</label>
@@ -250,12 +252,12 @@ $orgId = $_SESSION['current_org_id'];
                                                                     <div className="text-xs text-slate-500">{gap.reason}</div>
                                                                 </div>
                                                                 {gap.suggested_connector && (
-                                                                    <button onClick={() => toggleService(gap.suggested_connector.toLowerCase())} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${isResolved ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                                        {isResolved ? 'Linked' : `Link ${gap.suggested_connector}`}
+                                                                    <button onClick={() => toggleService(gap.suggested_connector.toLowerCase())} disabled={isConnecting === gap.suggested_connector.toLowerCase()} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${isResolved ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                                                        {isConnecting === gap.suggested_connector.toLowerCase() ? <Icon name="loader-2" className="animate-spin" size={10} /> : (isResolved ? 'Authorized' : `Link ${gap.suggested_connector}`)}
                                                                     </button>
                                                                 )}
                                                             </div>
-                                                            <input className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-600 disabled:opacity-50" value={contextData[gap.key] || ''} disabled={isResolved} onChange={(e) => setContextData({...contextData, [gap.key]: e.target.value})} placeholder={isResolved ? 'Verified via API' : 'Enter value...'} />
+                                                            <input className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-600 disabled:opacity-50" value={contextData[gap.key] || ''} disabled={isResolved} onChange={(e) => setContextData({...contextData, [gap.key]: e.target.value})} placeholder={isResolved ? 'Verified via Intelligence Hub' : 'Enter value...'} />
                                                         </div>
                                                     );
                                                 })}
@@ -290,7 +292,7 @@ $orgId = $_SESSION['current_org_id'];
                                     <div className="flex justify-between items-center">
                                         <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • Strategic Paths</h2>
                                         <div className="flex gap-4">
-                                            <button onClick={analyzeContext} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
+                                            <button onClick={() => analyzeContext(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
                                                 {isAnalyzing ? <Icon name="loader-2" className="animate-spin" size={12} /> : <Icon name="refresh-cw" size={12} />}
                                                 Regenerate AI Options
                                             </button>
@@ -344,16 +346,17 @@ $orgId = $_SESSION['current_org_id'];
 
                         {/* CONNECTORS SIDEBAR */}
                         <aside className="space-y-8">
-                            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl sticky top-24">
-                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8">Intelligence Connectors</h3>
-                                <div className="space-y-4">
+                            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl sticky top-24 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
+                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8 relative z-10">Intelligence Connectors</h3>
+                                <div className="space-y-4 relative z-10">
                                     {connectorRegistry.map(conn => (
                                         <div key={conn.id} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm" style={{backgroundColor: conn.color}}>{conn.icon}</div>
                                                 <div>
                                                     <div className="text-[10px] font-black tracking-tight">{conn.name}</div>
-                                                    <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Synced' : conn.description}</div>
+                                                    <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Live Connection' : conn.description}</div>
                                                 </div>
                                             </div>
                                             <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${connectedServices.includes(conn.id) ? 'bg-emerald-500 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
@@ -362,6 +365,9 @@ $orgId = $_SESSION['current_org_id'];
                                         </div>
                                     ))}
                                 </div>
+                                <p className="mt-8 text-[10px] text-slate-500 leading-relaxed italic relative z-10">
+                                    Note: Linking a service initiates a secure OAuth handshake to verify your strategic context.
+                                </p>
                             </div>
                         </aside>
                     </div>
