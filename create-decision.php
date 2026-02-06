@@ -85,7 +85,13 @@ $orgId = $_SESSION['current_org_id'];
                     });
                     const data = await res.json();
                     setGaps(data.gaps || []);
-                    setOptions(data.options || []);
+                    // Map options to include a unique ID for React keys and local editing
+                    const initialOptions = (data.options || []).map((o, idx) => ({
+                        ...o,
+                        id: 'ai-' + idx,
+                        isAiGenerated: true
+                    }));
+                    setOptions(initialOptions);
                     setStep(2); // Only move to step 2 after we have results
                 } catch (e) {
                     console.error("Analysis failed", e);
@@ -108,7 +114,33 @@ $orgId = $_SESSION['current_org_id'];
                 }
             };
 
+            const addManualOption = () => {
+                setOptions([
+                    ...options,
+                    {
+                        id: 'manual-' + Date.now(),
+                        name: '',
+                        description: '',
+                        confidence: 0,
+                        isAiGenerated: false
+                    }
+                ]);
+            };
+
+            const updateOption = (id, field, value) => {
+                setOptions(options.map(opt => opt.id === id ? { ...opt, [field]: value } : opt));
+            };
+
+            const removeOption = (id) => {
+                setOptions(options.filter(opt => opt.id !== id));
+            };
+
             const saveDecision = async () => {
+                if (options.length === 0) {
+                    alert("Please provide at least one strategic path.");
+                    return;
+                }
+                
                 setIsSubmitting(true);
                 try {
                     const res = await fetch('/api/create-decision.php', {
@@ -120,7 +152,7 @@ $orgId = $_SESSION['current_org_id'];
                             options: options.map(o => ({
                                 name: o.name,
                                 description: o.description,
-                                isAiGenerated: true
+                                isAiGenerated: o.isAiGenerated
                             })),
                             mode: 'create'
                         })
@@ -256,31 +288,60 @@ $orgId = $_SESSION['current_org_id'];
                                 </div>
                             )}
 
-                            {/* STEP 3: OPTIONS PREVIEW */}
+                            {/* STEP 3: OPTIONS PREVIEW & MANUAL EDITING */}
                             {step === 3 && (
                                 <div className="space-y-6 animate-in">
                                     <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • High-Fidelity Strategic Paths</h2>
-                                    {options.length > 0 ? options.map((opt, i) => (
-                                        <div key={i} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm hover:border-indigo-300 transition-all group">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <h3 className="text-3xl font-black text-slate-900 group-hover:text-indigo-600 transition tracking-tighter">{opt.name}</h3>
-                                                <div className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1.5 rounded-full uppercase">
-                                                    {opt.confidence}% Confidence
+                                    
+                                    <div className="space-y-6">
+                                        {options.map((opt, i) => (
+                                            <div key={opt.id} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm hover:border-indigo-300 transition-all group relative">
+                                                <button
+                                                    onClick={() => removeOption(opt.id)}
+                                                    className="absolute top-8 right-8 text-slate-300 hover:text-red-500 transition"
+                                                >
+                                                    <Icon name="trash-2" size={18} />
+                                                </button>
+                                                
+                                                <div className="flex justify-between items-start mb-6">
+                                                    <div className="w-full mr-12">
+                                                        <input
+                                                            className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent focus:border-indigo-600 outline-none w-full tracking-tighter"
+                                                            value={opt.name}
+                                                            placeholder="Strategic Path Title"
+                                                            onChange={(e) => updateOption(opt.id, 'name', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    {opt.isAiGenerated && (
+                                                        <div className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1.5 rounded-full uppercase shrink-0">
+                                                            {opt.confidence}% Confidence
+                                                        </div>
+                                                    )}
                                                 </div>
+                                                
+                                                <textarea
+                                                    className="w-full bg-slate-50 p-6 rounded-2xl text-slate-600 font-medium leading-relaxed outline-none focus:bg-slate-100/50 transition-colors h-32 resize-none"
+                                                    value={opt.description}
+                                                    placeholder="Describe the logic and expected outcome of this path..."
+                                                    onChange={(e) => updateOption(opt.id, 'description', e.target.value)}
+                                                />
                                             </div>
-                                            <p className="text-slate-500 font-medium leading-relaxed mb-8">{opt.description}</p>
-                                            <button onClick={() => saveDecision()} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800">Select This Path</button>
-                                        </div>
-                                    )) : (
-                                        <div className="p-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Generating speculative paths based on limited data...</p>
-                                        </div>
-                                    )}
+                                        ))}
+
+                                        {/* Add Manual Option Button */}
+                                        <button
+                                            onClick={addManualOption}
+                                            className="w-full p-8 border-2 border-dashed border-slate-200 rounded-[3rem] text-slate-400 font-black uppercase tracking-widest text-xs hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center justify-center gap-3"
+                                        >
+                                            <Icon name="plus" size={16} /> Add Manual Strategic Option
+                                        </button>
+                                    </div>
+
                                     <div className="flex gap-4 pt-10">
                                        <button onClick={() => setStep(2)} className="px-10 py-5 bg-white border border-slate-100 rounded-2xl font-black text-slate-400 text-sm hover:bg-slate-50 transition">Back</button>
                                        <button
-                                            onClick={() => saveDecision()}
-                                            disabled={isSubmitting}
+                                            onClick={saveDecision}
+                                            disabled={isSubmitting || options.length === 0}
                                             className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-2xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-3"
                                         >
                                             {isSubmitting && <Icon name="loader-2" className="animate-spin" />}
