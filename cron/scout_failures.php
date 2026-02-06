@@ -1,16 +1,18 @@
 <?php
 /**
  * File Path: cron/scout_failures.php
- * Description: Advanced High-Density Strategic Scout.
+ * Description: High-Velocity Strategic Scout v4.0.
  * Features:
- * - Broadened search for Operational Inefficiency & Opportunity Cost.
- * - Quantified impact extraction (Waste/Time).
- * - Multi-stage search pagination.
+ * - Aggressive multi-query horizon (25+ queries).
+ * - Deep pagination (up to 10 pages per query).
+ * - Targets Operational Waste, M&A blunders, and Technical Debt.
+ * - Built for high-volume ingestion (Target: 1,000+ records).
  */
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-set_time_limit(0);
+set_time_limit(0); // Essential for long-running ingestion sessions
+ignore_user_abort(true);
 
 require_once __DIR__ . '/../config.php';
 
@@ -22,8 +24,8 @@ function fetchUrlContent($url) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DecisionVaultIntelligence/2.0');
+    curl_setopt($ch, CURLOPT_TIMEOUT, 25);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DecisionVaultIntelligence/4.0');
     $content = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -33,23 +35,22 @@ function fetchUrlContent($url) {
 
 /**
  * Advanced AI Strategic Synthesis
- * Maps failure narratives to the high-density schema.
  */
 function analyzeWithGemini($text) {
-    if (empty($text)) return null;
+    if (empty($text) || strlen($text) < 500) return null;
 
     $apiKey = GEMINI_API_KEY;
     $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . $apiKey;
 
-    // Use a larger context window for complex operational stories
-    $cleanText = mb_strimwidth(strip_tags($text), 0, 12000);
+    // Focused context window to extract deep logic from operational stories
+    $cleanText = mb_strimwidth(strip_tags($text), 0, 15000);
 
     $prompt = "Act as an Enterprise Forensic Strategist. Analyze the following narrative regarding a business event (failure, inefficiency, or missed opportunity).
     Extract the intelligence into a RAW JSON object with these exact keys:
     'company_name', 
     'industry', 
     'intelligence_type' (Select one: 'Total Collapse', 'Operational Inefficiency', 'Strategic Blunder', 'Opportunity Cost', 'Market Displacement'),
-    'decision_type' (e.g. 'Failed ERP Implementation', 'Delayed Market Entry', 'Pricing Miscalculation'), 
+    'decision_type' (e.g. 'Failed ERP Implementation', 'Delayed Market Entry', 'Pricing Miscalculation', 'M&A Blunder'), 
     'logic_used' (the original executive rationale), 
     'failure_reason' (clinical root cause),
     'mitigation_strategy' (prevention playbook),
@@ -61,11 +62,11 @@ function analyzeWithGemini($text) {
     TEXT:
     {$cleanText}
 
-    Return ONLY raw JSON. Do not include markdown formatting or explanations.";
+    Return ONLY raw JSON. No markdown.";
 
     $payload = [
         "contents" => [["parts" => [["text" => $prompt]]]],
-        "generationConfig" => ["responseMimeType" => "application/json", "temperature" => 0.2]
+        "generationConfig" => ["responseMimeType" => "application/json", "temperature" => 0.1]
     ];
 
     $ch = curl_init($url);
@@ -88,31 +89,64 @@ function analyzeWithGemini($text) {
 
 function runScout() {
     $pdo = getDbConnection();
-    echo "\n[SYSTEM] INITIALIZING: High-Density Strategic Scout v3.0\n";
+    echo "\n[SYSTEM] INITIALIZING: High-Velocity Strategic Scout v4.0\n";
+    echo "[INFO] Targeting 1,000+ records across global archives.\n";
 
-    // BROADENED SEARCH HORIZON
+    // EXPANDED SEARCH HORIZON (Targets failures, inefficiencies, and blunders)
     $queries = [
-        'failed enterprise software implementation case study',
-        'strategic opportunity cost business example',
-        'operational inefficiency post-mortem',
-        'why [Company] acquisition failed',
-        'technical debt bankruptcy story',
-        'corporate blunder analysis',
-        'missed market signal retrospective'
+        // Operational & IT Waste
+        'failed enterprise software implementation story',
+        'ERP migration failure case study',
+        'why the digital transformation failed',
+        'cloud migration budget overrun',
+        'technical debt bankruptcy analysis',
+        'redundant software stack waste',
+        
+        // Strategic & M&A
+        'merger failure post-mortem',
+        'failed acquisition rationale',
+        'strategic pivot disaster',
+        'missed market signal retrospective',
+        'why [Company] failed to innovate',
+        'over-leveraged buyouts gone wrong',
+        
+        // Product & Market
+        'product launch failure analysis',
+        'why we killed the feature retrospective',
+        'pricing model change churn case study',
+        'international expansion blunder story',
+        'regional market exit retrospective',
+        
+        // Governance & Hiring
+        'bad hire executive failure',
+        'governance collapse story',
+        'corporate board blunder analysis',
+        'startup founder conflict post-mortem',
+        
+        // General Failure Archives
+        'startup post-mortem archive',
+        'lessons from business bankruptcy',
+        'why my company shut down',
+        'strategic error examples',
+        'opportunity cost business retrospective'
     ];
 
     $totalIngested = 0;
 
     foreach ($queries as $q) {
-        echo "[SEARCH] Querying global archives for signals: '$q'...\n";
+        echo "\n[SEARCH] Signal Query: '$q'\n";
         
-        // Loop through multiple pages for higher yield
-        for ($page = 0; $page < 3; $page++) {
-            $searchUrl = "https://hn.algolia.com/api/v1/search?query=" . urlencode($q) . "&tags=story&page=$page&hitsPerPage=20";
+        // Deep Pagination: Loop through up to 10 pages per query for higher yield
+        for ($page = 0; $page < 10; $page++) {
+            echo "      - Paging: Offset $page\n";
+            $searchUrl = "https://hn.algolia.com/api/v1/search?query=" . urlencode($q) . "&tags=story&page=$page&hitsPerPage=30";
             $searchRes = fetchUrlContent($searchUrl);
             $data = json_decode($searchRes, true);
 
-            if (empty($data['hits'])) break;
+            if (empty($data['hits'])) {
+                echo "      ! End of signals for this query.\n";
+                break;
+            }
 
             foreach ($data['hits'] as $hit) {
                 $sourceUrl = $hit['url'] ?? "https://news.ycombinator.com/item?id=" . $hit['objectID'];
@@ -122,9 +156,20 @@ function runScout() {
                 $check->execute([$sourceUrl]);
                 if ($check->fetch()) continue;
 
-                echo "      - Processing Potential Signal: " . mb_strimwidth($hit['title'], 0, 40) . "...\n";
+                // Title check: Skip low-value content (jobs, ask hn without story, etc)
+                if (stripos($hit['title'], 'Ask HN:') !== false || stripos($hit['title'], 'Show HN:') !== false) {
+                    // Only skip if the link isn't external
+                    if (!isset($hit['url'])) continue;
+                }
+
+                echo "      - Processing: " . mb_strimwidth($hit['title'], 0, 60) . "...\n";
                 $articleHtml = fetchUrlContent($sourceUrl);
-                if (!$articleHtml || strlen($articleHtml) < 500) continue; // Skip thin content
+                
+                // Only process substantial narratives
+                if (!$articleHtml || strlen($articleHtml) < 1000) {
+                    echo "        ! Content too thin. Skipping.\n";
+                    continue;
+                }
 
                 echo "      - Synthesizing Strategic Pattern...\n";
                 $analysis = analyzeWithGemini($articleHtml);
@@ -149,21 +194,27 @@ function runScout() {
                             $analysis['estimated_time_loss'] ?? 'Unknown',
                             $analysis['tags'] ?? '',
                             $analysis['strategic_severity'] ?? 5,
-                            85 // Static confidence base for Gemini 2.5
+                            90 // High confidence base for v4.0
                         ]);
                         $totalIngested++;
-                        echo "      [+] Pattern Secured: " . $analysis['company_name'] . " (" . $analysis['intelligence_type'] . ")\n";
+                        echo "      [+] Pattern Secured: " . $analysis['company_name'] . " ($totalIngested total)\n";
                     } catch (Exception $e) {
-                        echo "      [!] DB Write Failure: " . $e->getMessage() . "\n";
+                        echo "      [!] DB Error: " . $e->getMessage() . "\n";
                     }
+                } else {
+                    echo "        ! Analysis rejected or insufficient logic found.\n";
                 }
+                
+                // Small delay to keep Gemini API healthy
+                usleep(500000); // 0.5s
             }
-            // Polite delay between pages
-            sleep(1);
+            
+            // Safety break: if we've already secured enough in one session, stop to review
+            if ($totalIngested >= 1000) break 2;
         }
     }
 
-    echo "\n[SUCCESS] Scout sequence complete. $totalIngested high-density patterns secured in the library.\n\n";
+    echo "\n[SUCCESS] Scout sequence complete. $totalIngested high-density patterns secured.\n\n";
 }
 
 runScout();
