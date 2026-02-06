@@ -1,8 +1,8 @@
 <?php
 /**
  * File Path: create-decision.php
- * Description: Restored and Redesigned High-Fidelity Strategic Interface.
- * Restores: 3-step flow, Manual Options, Skip Logic, and adds Collaborators.
+ * Description: Executive interface for strategic decision architecture.
+ * Professionalized typography, formal language, and integrated governance.
  */
 require_once __DIR__ . '/config.php';
 requireLogin();
@@ -24,13 +24,12 @@ $orgId = $_SESSION['current_org_id'];
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; color: #0f172a; }
-        .animate-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .premium-card { background: white; border: 1px solid #f1f3f5; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03); border-radius: 3rem; }
-        .loader-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .executive-card { background: white; border: 1px solid #e2e8f0; border-radius: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .step-indicator { border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+        .input-formal { width: 100%; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fdfdfd; font-size: 0.875rem; outline: none; transition: all 0.2s; }
+        .input-formal:focus { border-color: #6366f1; background: white; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.05); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -42,7 +41,7 @@ $orgId = $_SESSION['current_org_id'];
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const Icon = ({ name, size = 20, className = "" }) => {
+        const Icon = ({ name, size = 18, className = "" }) => {
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
@@ -63,10 +62,10 @@ $orgId = $_SESSION['current_org_id'];
             const [isConnecting, setIsConnecting] = useState(null);
 
             const connectorRegistry = [
-                { id: 'stripe', name: 'Stripe', color: '#635BFF', description: 'Revenue & Burn', icon: 'S' },
-                { id: 'hubspot', name: 'HubSpot', color: '#FF7A59', description: 'Pipeline & CRM', icon: 'H' },
-                { id: 'salesforce', name: 'Salesforce', color: '#00A1E0', description: 'Enterprise Sales', icon: 'SF' },
-                { id: 'linkedin', name: 'LinkedIn Ads', color: '#0A66C2', description: 'CAC & Funnel', icon: 'in' }
+                { id: 'stripe', name: 'Stripe', color: '#635BFF', description: 'Financial Data', icon: 'S' },
+                { id: 'hubspot', name: 'HubSpot', color: '#FF7A59', description: 'CRM Pipeline', icon: 'H' },
+                { id: 'salesforce', name: 'Salesforce', color: '#00A1E0', description: 'Sales Intel', icon: 'SF' },
+                { id: 'linkedin', name: 'LinkedIn', color: '#0A66C2', description: 'Marketing Funnel', icon: 'in' }
             ];
 
             const fetchIntelligence = async (forceOptions = false) => {
@@ -89,31 +88,13 @@ $orgId = $_SESSION['current_org_id'];
                     
                     if (data.success) {
                         setGaps(data.gaps || []);
-                        setAiPayload({
-                            counterfactual: data.counterfactual,
-                            benchmark: data.benchmark
-                        });
-                        
-                        // Map and unique-ID new options
-                        const fetchedOptions = (data.options || []).map((o, idx) => ({
-                            ...o,
-                            id: 'ai-' + idx + '-' + Date.now(),
-                            isAiGenerated: true
-                        }));
-                        
+                        setAiPayload({ counterfactual: data.counterfactual, benchmark: data.benchmark });
+                        const fetchedOptions = (data.options || []).map((o, idx) => ({ ...o, id: 'ai-' + idx + '-' + Date.now(), isAiGenerated: true }));
                         if (fetchedOptions.length > 0) setOptions(fetchedOptions);
-
-                        if (forceOptions || (step === 2 && data.gaps.length === 0)) {
-                            setStep(3);
-                        } else if (step === 1) {
-                            setStep(2);
-                        }
+                        if (forceOptions || (step === 2 && data.gaps.length === 0)) setStep(3);
+                        else if (step === 1) setStep(2);
                     }
-                } catch (e) {
-                    console.error("AI Analysis failed", e);
-                } finally {
-                    setIsAnalyzing(false);
-                }
+                } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
             };
 
             const toggleService = async (service) => {
@@ -126,18 +107,13 @@ $orgId = $_SESSION['current_org_id'];
                         body: JSON.stringify({ provider: service, action: isConnected ? 'disconnect' : 'connect' })
                     });
                     const data = await res.json();
-                    if (data.success) {
-                        setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
-                    }
-                } catch (e) {
-                    setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
-                } finally {
-                    setIsConnecting(null);
-                }
+                    if (data.success) setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]);
+                } catch (e) { setConnectedServices(isConnected ? connectedServices.filter(s => s !== service) : [...connectedServices, service]); }
+                finally { setIsConnecting(null); }
             };
 
             const addManualOption = () => {
-                setOptions([...options, { id: 'manual-' + Date.now(), name: '', description: '', confidence_interval: 'N/A', risk_score: 5, expected_value: '$0', isAiGenerated: false }]);
+                setOptions([...options, { id: 'manual-' + Date.now(), name: '', description: '', confidence_interval: 'N/A', risk_score: 5, expected_value: 'TBD', isAiGenerated: false }]);
             };
 
             const updateOption = (id, field, value) => {
@@ -154,64 +130,60 @@ $orgId = $_SESSION['current_org_id'];
                     const res = await fetch('/api/create-decision.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title,
-                            problem,
-                            options: options.map(o => ({ name: o.name, description: o.description, isAiGenerated: o.isAiGenerated })),
-                            mode: 'create'
-                        })
+                        body: JSON.stringify({ title, problem, options: options.map(o => ({ name: o.name, description: o.description, isAiGenerated: o.isAiGenerated })), mode: 'create' })
                     });
                     const data = await res.json();
                     if (data.success) window.location.href = `/decision.php?id=${data.decision_id}`;
-                } catch (e) { alert("Secure Save failed."); }
+                } catch (e) { alert("Save process failed."); }
                 finally { setIsSubmitting(false); }
             };
 
             return (
                 <main className="max-w-7xl mx-auto py-12 px-6">
-                    <header className="mb-12 flex justify-between items-end">
+                    <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                         <div>
-                            <div className="flex items-center gap-2 mb-4">
+                            <div className="flex items-center gap-2 mb-2">
                                 <Icon name="shield" className="text-indigo-600" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Decision Intelligence OS</span>
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Governance & Strategy Architecture</span>
                             </div>
-                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Strategic Architecture</h1>
+                            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">New Strategic Artifact</h1>
                         </div>
-                        {aiPayload.benchmark && (
-                            <div className="hidden lg:block bg-indigo-50 border border-indigo-100 p-4 rounded-2xl animate-in">
-                                <div className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1">Industry Benchmark</div>
-                                <div className="text-xs font-bold text-indigo-900">{aiPayload.benchmark}</div>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {[1, 2, 3].map(s => (
+                                <div key={s} className={`step-indicator ${step >= s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{s}</div>
+                            ))}
+                        </div>
                     </header>
 
-                    <div className="grid lg:grid-cols-3 gap-12">
-                        <div className="lg:col-span-2 space-y-8">
+                    <div className="grid lg:grid-cols-4 gap-8">
+                        <div className="lg:col-span-3 space-y-8">
                             
-                            {/* STEP 1: CONTEXT & COLLABORATORS */}
+                            {/* STEP 1: CONTEXT */}
                             {step === 1 && (
-                                <div className="premium-card p-10 animate-in">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">01 • Problem Analysis</h2>
-                                    <div className="space-y-8">
+                                <div className="executive-card p-10 animate-in">
+                                    <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-2">
+                                        <Icon name="file-text" size={14} className="text-indigo-600" /> 01 • Rationale and Objectives
+                                    </h2>
+                                    <div className="space-y-6">
                                         <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Decision Title</label>
-                                            <input className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl text-2xl font-black outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="e.g. Hire VP of Sales" value={title} onChange={(e) => setTitle(e.target.value)} />
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Decision Title</label>
+                                            <input className="input-formal text-lg font-bold" placeholder="e.g. FY26 International Expansion Strategy" value={title} onChange={(e) => setTitle(e.target.value)} />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Problem Statement</label>
-                                            <textarea className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-3xl h-32 font-medium outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="What core friction is driving this choice?" value={problem} onChange={(e) => setProblem(e.target.value)} />
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Executive Problem Statement</label>
+                                            <textarea className="input-formal h-32 font-medium" placeholder="Synthesize the core business problem and intended outcome..." value={problem} onChange={(e) => setProblem(e.target.value)} />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Stakeholders (Emails, comma separated)</label>
-                                            <input className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl text-sm font-bold outline-none focus:border-indigo-600 focus:bg-white transition-all" placeholder="ceo@company.com, cto@company.com..." value={stakeholders} onChange={(e) => setStakeholders(e.target.value)} />
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Governance Stakeholders (Emails)</label>
+                                            <input className="input-formal text-sm font-bold" placeholder="approver@corp.com, review@corp.com..." value={stakeholders} onChange={(e) => setStakeholders(e.target.value)} />
                                         </div>
                                         <button
                                             onClick={() => fetchIntelligence()}
                                             disabled={!title || isAnalyzing}
-                                            className="w-full bg-slate-900 text-white py-6 rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                         >
-                                            {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="cpu" />}
-                                            {isAnalyzing ? 'Scanning Knowledge Base...' : 'Weaponize Logic'}
+                                            {isAnalyzing ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="zap" size={14} />}
+                                            {isAnalyzing ? 'Simulating Analysis...' : 'Synthesize Strategy'}
                                         </button>
                                     </div>
                                 </div>
@@ -219,108 +191,104 @@ $orgId = $_SESSION['current_org_id'];
 
                             {/* STEP 2: INTERVIEW */}
                             {step === 2 && (
-                                <div className="premium-card p-10 animate-in">
-                                    <div className="flex justify-between items-center mb-10">
-                                        <h2 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">02 • Intelligence Interview</h2>
+                                <div className="executive-card p-10 animate-in">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                            <Icon name="search" size={14} className="text-indigo-600" /> 02 • Risk Gaps & Information Requirements
+                                        </h2>
                                         {isAnalyzing && <Icon name="loader-2" className="animate-spin text-indigo-600" />}
                                     </div>
 
                                     {gaps.length > 0 ? (
                                         <div className="space-y-8">
-                                            <p className="text-xl font-bold text-slate-900 leading-tight">Missing variables identified for high-confidence recommendation:</p>
-                                            <div className="space-y-4">
+                                            <p className="text-lg font-semibold text-slate-900 leading-tight">Critical information gaps identified for high-confidence synthesis:</p>
+                                            <div className="grid md:grid-cols-2 gap-4">
                                                 {gaps.map((gap) => {
                                                     const isResolved = gap.suggested_connector && connectedServices.includes(gap.suggested_connector.toLowerCase());
                                                     return (
-                                                        <div key={gap.key} className={`p-6 border rounded-3xl transition-all ${isResolved ? 'bg-emerald-50/50 border-emerald-100' : 'bg-slate-50 border-slate-100 group hover:border-indigo-200'}`}>
-                                                            <div className="flex justify-between items-start mb-4">
+                                                        <div key={gap.key} className={`p-5 border rounded-xl transition-all ${isResolved ? 'bg-emerald-50/50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
+                                                            <div className="flex justify-between items-start mb-3">
                                                                 <div>
-                                                                    <div className="font-black text-slate-900">{gap.label} {isResolved && '✓'}</div>
-                                                                    <div className="text-xs text-slate-500 font-medium">{gap.reason}</div>
+                                                                    <div className="font-bold text-slate-900 text-sm">{gap.label} {isResolved && '✓'}</div>
+                                                                    <div className="text-[10px] text-slate-500 font-medium leading-tight mt-1">{gap.reason}</div>
                                                                 </div>
-                                                                {gap.suggested_connector && (
-                                                                    <button onClick={() => toggleService(gap.suggested_connector.toLowerCase())} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${isResolved ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
-                                                                        {isResolved ? 'Verified' : `Link ${gap.suggested_connector}`}
-                                                                    </button>
-                                                                )}
                                                             </div>
-                                                            <input className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-600 disabled:opacity-50" value={contextData[gap.key] || ''} disabled={isResolved} onChange={(e) => setContextData({...contextData, [gap.key]: e.target.value})} placeholder={isResolved ? 'Automatically synced via API' : 'Enter value...'} />
+                                                            <input className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-600 disabled:opacity-50" value={contextData[gap.key] || ''} disabled={isResolved} onChange={(e) => setContextData({...contextData, [gap.key]: e.target.value})} placeholder={isResolved ? 'Verified via API' : 'Enter value...'} />
                                                         </div>
                                                     );
                                                 })}
                                             </div>
-                                            <div className="flex gap-4">
-                                                <button onClick={() => setStep(1)} className="px-8 py-5 border border-slate-100 rounded-2xl font-black text-slate-400">Back</button>
-                                                <button onClick={() => fetchIntelligence()} disabled={isAnalyzing} className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black flex items-center justify-center gap-2">
-                                                    {isAnalyzing && <Icon name="loader-2" className="animate-spin" />}
+                                            <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                                <button onClick={() => setStep(1)} className="px-6 py-3 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400">Back</button>
+                                                <button onClick={() => fetchIntelligence()} disabled={isAnalyzing} className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md flex items-center justify-center gap-2">
                                                     Update Modeling
                                                 </button>
                                             </div>
                                             <div className="text-center">
-                                                <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-xs font-black text-slate-300 uppercase tracking-widest hover:text-indigo-600 transition">Skip & View Speculative Paths</button>
+                                                <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-300 uppercase tracking-widest hover:text-indigo-600 transition">Proceed with Speculative Modeling</button>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="py-20 text-center">
-                                            <Icon name="zap" size={48} className="text-indigo-600 mx-auto mb-6" />
-                                            <h3 className="text-2xl font-black text-slate-900">Intelligence Baseline Met</h3>
-                                            <button onClick={() => setStep(3)} className="mt-8 bg-slate-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-xs">View Options</button>
+                                            <Icon name="check-circle" size={40} className="text-emerald-500 mx-auto mb-6" />
+                                            <h3 className="text-xl font-bold text-slate-900">Information Requirements Satisfied</h3>
+                                            <button onClick={() => setStep(3)} className="mt-8 bg-slate-900 text-white px-10 py-3 rounded-lg font-bold uppercase tracking-widest text-xs">View Strategic Paths</button>
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* STEP 3: PATHS & MANUAL EDITING */}
+                            {/* STEP 3: PATHS */}
                             {step === 3 && (
                                 <div className="space-y-8 animate-in">
                                     <div className="flex justify-between items-center">
-                                        <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">03 • Strategic Architecture</h2>
+                                        <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest">03 • Strategic Architecture</h2>
                                         <div className="flex gap-4">
-                                            <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600 transition">
-                                                <Icon name="refresh-cw" size={12} className={isAnalyzing ? 'animate-spin' : ''} /> Regenerate
+                                            <button onClick={() => fetchIntelligence(true)} disabled={isAnalyzing} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-indigo-600">
+                                                <Icon name="refresh-cw" size={12} className={isAnalyzing ? 'animate-spin' : ''} /> Refresh AI
                                             </button>
                                             <button onClick={addManualOption} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                                                <Icon name="plus" size={12} /> Manual Path
+                                                <Icon name="plus" size={12} /> Add Path
                                             </button>
                                         </div>
                                     </div>
 
                                     {aiPayload.counterfactual && (
-                                        <div className="p-8 bg-red-50 border border-red-100 rounded-[3rem] relative overflow-hidden">
-                                            <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                <Icon name="alert-circle" size={12} /> The Cost of Inaction (Counterfactual)
+                                        <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl">
+                                            <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Icon name="alert-triangle" size={12} /> Impact of Inaction (Status Quo Analysis)
                                             </div>
-                                            <p className="text-red-900 font-bold leading-relaxed">{aiPayload.counterfactual}</p>
+                                            <p className="text-xs text-amber-900 font-medium leading-relaxed italic">{aiPayload.counterfactual}</p>
                                         </div>
                                     )}
 
                                     <div className="space-y-6">
                                         {options.map((opt) => (
-                                            <div key={opt.id} className="premium-card p-10 hover:border-indigo-200 transition-all group relative">
-                                                <button onClick={() => removeOption(opt.id)} className="absolute top-8 right-8 text-slate-200 hover:text-red-500 transition"><Icon name="trash-2" size={18} /></button>
+                                            <div key={opt.id} className="executive-card p-8 hover:border-indigo-200 transition-all group relative">
+                                                <button onClick={() => removeOption(opt.id)} className="absolute top-6 right-6 text-slate-200 hover:text-red-500 transition"><Icon name="trash-2" size={16} /></button>
                                                 <div className="flex justify-between items-start mb-6 mr-10">
-                                                    <input className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent focus:border-indigo-600 outline-none w-full tracking-tighter" value={opt.name} placeholder="Path Title..." onChange={(e) => updateOption(opt.id, 'name', e.target.value)} />
+                                                    <input className="text-2xl font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-indigo-600 outline-none w-full tracking-tight" value={opt.name} placeholder="Strategic Path Title..." onChange={(e) => updateOption(opt.id, 'name', e.target.value)} />
                                                     {opt.isAiGenerated && (
                                                         <div className="text-right shrink-0 ml-4">
-                                                            <div className="text-[8px] font-black text-emerald-500 uppercase">Confidence</div>
-                                                            <div className="text-lg font-black text-slate-900">{opt.confidence_interval || '80%'}</div>
+                                                            <div className="text-[8px] font-black text-emerald-500 uppercase">Probability</div>
+                                                            <div className="text-sm font-black text-slate-900">{opt.confidence_interval || '80%'}</div>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <textarea className="w-full bg-slate-50 p-6 rounded-2xl text-slate-600 font-medium h-32 resize-none outline-none focus:bg-white transition" value={opt.description} placeholder="Logic rationale..." onChange={(e) => updateOption(opt.id, 'description', e.target.value)} />
+                                                <textarea className="w-full bg-slate-50 p-4 rounded-xl text-slate-600 text-sm font-medium h-24 resize-none outline-none focus:bg-white border border-slate-100 transition" value={opt.description} placeholder="Describe the logical rationale..." onChange={(e) => updateOption(opt.id, 'description', e.target.value)} />
                                                 
                                                 {opt.isAiGenerated && (
-                                                    <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-slate-50">
-                                                        <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                                                            <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Expected Value</div>
-                                                            <div className="text-xs font-black text-indigo-600">{opt.expected_value}</div>
+                                                    <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-100">
+                                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase mb-1">Expected ROI</div>
+                                                            <div className="text-[10px] font-black text-indigo-600">{opt.expected_value}</div>
                                                         </div>
-                                                        <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                                                            <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Risk Score</div>
-                                                            <div className="text-xs font-black text-red-500">{opt.risk_score}/10</div>
+                                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase mb-1">Risk Quotient</div>
+                                                            <div className="text-[10px] font-black text-red-500">{opt.risk_score}/10</div>
                                                         </div>
-                                                        <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                                                            <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Pattern Match</div>
+                                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase mb-1">Sector Benchmark</div>
                                                             <div className="text-[10px] font-black text-slate-900 truncate">{opt.pattern_match || 'Strategic Fit'}</div>
                                                         </div>
                                                     </div>
@@ -330,57 +298,58 @@ $orgId = $_SESSION['current_org_id'];
                                     </div>
 
                                     <div className="flex gap-4 pt-10">
-                                       <button onClick={() => setStep(2)} className="px-10 py-6 bg-white border border-slate-100 rounded-3xl font-black text-slate-400">Back</button>
-                                       <button onClick={saveDecision} disabled={isSubmitting || options.length === 0} className="flex-1 bg-indigo-600 text-white py-6 rounded-3xl font-black text-xl shadow-2xl flex items-center justify-center gap-3">
+                                       <button onClick={() => setStep(2)} className="px-8 py-4 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400">Back</button>
+                                       <button onClick={saveDecision} disabled={isSubmitting || options.length === 0} className="flex-1 bg-indigo-600 text-white py-4 rounded-lg font-bold text-sm uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
                                             {isSubmitting && <Icon name="loader-2" className="animate-spin" />}
-                                            {isSubmitting ? 'Securing Intelligence...' : 'Secure in Logic Vault'}
+                                            {isSubmitting ? 'Architecting...' : 'Finalize Strategic Artifact'}
                                         </button>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* SIDEBAR: STAKEHOLDERS & CONNECTORS */}
-                        <aside className="space-y-8">
-                            <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl sticky top-24 overflow-hidden relative">
-                                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-8 relative z-10">Decision Infrastructure</h3>
-                                <div className="space-y-8 relative z-10">
-                                    
-                                    {/* Stakeholders View */}
+                        {/* SIDEBAR */}
+                        <aside className="space-y-6">
+                            {aiPayload.benchmark && (
+                                <div className="p-5 bg-indigo-600 rounded-xl text-white shadow-xl">
+                                    <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Industry Insight</div>
+                                    <p className="text-xs font-bold leading-snug">{aiPayload.benchmark}</p>
+                                </div>
+                            )}
+
+                            <div className="p-6 bg-slate-900 text-white rounded-xl shadow-xl sticky top-24">
+                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Decision Governance</h3>
+                                
+                                <div className="space-y-6">
                                     <div>
-                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-4">Active Collaborators</div>
-                                        <div className="flex -space-x-2">
+                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-3">Stakeholders</div>
+                                        <div className="flex -space-x-1.5">
                                             {stakeholders.split(',').filter(s => s.trim()).map((s, i) => (
-                                                <div key={i} className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold" title={s.trim()}>
+                                                <div key={i} className="w-7 h-7 rounded-full bg-indigo-500 border border-slate-900 flex items-center justify-center text-[9px] font-bold" title={s.trim()}>
                                                     {s.trim().charAt(0).toUpperCase()}
                                                 </div>
                                             ))}
-                                            <button onClick={() => setStep(1)} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition">
-                                                <Icon name="plus" size={12} />
+                                            <button onClick={() => setStep(1)} className="w-7 h-7 rounded-full bg-slate-800 border border-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition">
+                                                <Icon name="plus" size={10} />
                                             </button>
                                         </div>
                                     </div>
 
-                                    {/* Connectors */}
-                                    <div className="space-y-4">
-                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Intelligence Hub</div>
+                                    <div className="space-y-3">
+                                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Active Connectors</div>
                                         {connectorRegistry.map(conn => (
-                                            <div key={conn.id} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm" style={{backgroundColor: conn.color}}>{conn.icon}</div>
-                                                    <div>
-                                                        <div className="text-[10px] font-black tracking-tight">{conn.name}</div>
-                                                        <div className="text-[8px] font-black uppercase text-slate-500">{connectedServices.includes(conn.id) ? 'Synced' : 'Inactive'}</div>
-                                                    </div>
+                                            <div key={conn.id} className={`flex items-center justify-between p-3 rounded-lg border transition ${connectedServices.includes(conn.id) ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/5'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-black text-white" style={{backgroundColor: conn.color}}>{conn.icon}</div>
+                                                    <div className="text-[10px] font-bold">{conn.name}</div>
                                                 </div>
-                                                <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${connectedServices.includes(conn.id) ? 'bg-emerald-500 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
-                                                    {isConnecting === conn.id ? <Icon name="loader-2" size={12} className="animate-spin" /> : <Icon name={connectedServices.includes(conn.id) ? "check" : "plus"} size={14} />}
+                                                <button onClick={() => toggleService(conn.id)} disabled={isConnecting === conn.id} className="text-slate-400 hover:text-white">
+                                                    <Icon name={connectedServices.includes(conn.id) ? "check" : "link"} size={12} className={connectedServices.includes(conn.id) ? 'text-emerald-500' : ''} />
                                                 </button>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl"></div>
                             </div>
                         </aside>
                     </div>

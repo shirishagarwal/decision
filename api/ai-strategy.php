@@ -3,7 +3,7 @@
  * File Path: api/ai-strategy.php
  * Description: The Core Intelligence Brain.
  * Hardened to return structured data for high-fidelity UI features.
- * Supports Stakeholders, Gaps, Options, and Counterfactuals.
+ * Supports Governance, Risk Gaps, Strategic Options, and Impact Analysis.
  */
 
 require_once __DIR__ . '/../config.php';
@@ -31,30 +31,30 @@ $stmt = $pdo->prepare("SELECT company_name, decision_type, failure_reason FROM e
 $stmt->execute();
 $externalPatterns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$prompt = "You are a 'Chief Strategy Officer' for an elite organization. 
-A critical decision is being architectures.
+$prompt = "You are a Senior Strategic Advisor and Chief Strategy Officer for a global enterprise. 
+You are architecting a high-stakes executive decision.
 
 PROJECT_TITLE: '{$title}'
-CORE_PROBLEM: '{$problem}'
-STAKEHOLDERS: " . json_encode($stakeholders) . "
-EXISTING_DATA: " . json_encode($contextData) . "
-ACTIVE_CONNECTORS: " . json_encode($activeConnectors) . "
-FAILURE_BENCHMARKS: " . json_encode($externalPatterns) . "
+EXECUTIVE_SUMMARY: '{$problem}'
+GOVERNANCE_STAKEHOLDERS: " . json_encode($stakeholders) . "
+CURRENT_ORGANIZATIONAL_DATA: " . json_encode($contextData) . "
+INTEGRATED_DATA_STREAMS: " . json_encode($activeConnectors) . "
+HISTORICAL_RISK_BENCHMARKS: " . json_encode($externalPatterns) . "
 
 TASK:
-1. IDENTIFY 'context_gaps': List 3-4 data points missing for a 95% confidence score. Include 'label', 'key', 'reason', and 'suggested_connector'.
-2. GENERATE 3 'strategic_options': High-fidelity paths. Include:
+1. IDENTIFY 'context_gaps': List 3-4 critical data points required to reach a 95% confidence threshold. Include 'label', 'key', 'reason', and 'suggested_connector'.
+2. GENERATE 3 'strategic_options': Professional strategic paths. Include:
    - 'name', 'description'
    - 'confidence_interval' (e.g., '85-90%')
-   - 'expected_value' (e.g., '+$2M ARR impact')
+   - 'expected_value' (e.g., 'Estimated ROI: +$2.4M ARR')
    - 'risk_score' (1-10)
-   - 'pattern_match' (Reference a real company or industry failure pattern)
-3. PROVIDE 'counterfactual_analysis': A brutal look at the cost of doing NOTHING (Status Quo).
-4. PROVIDE 'industry_benchmark': e.g., '72% of SaaS firms at this stage chose Path A'.
+   - 'pattern_match' (Reference a relevant industry case study or historical pattern)
+3. PROVIDE 'counterfactual_analysis': A rigorous assessment of the risks associated with maintaining the Status Quo (Inaction).
+4. PROVIDE 'industry_benchmark': e.g., '72% of organizations in this sector prioritize this path'.
 
 REQUIRED OUTPUT FORMAT:
 Return ONLY a raw JSON object with these keys: 'context_gaps', 'strategic_options', 'counterfactual_analysis', 'industry_benchmark'.
-If data is low, provide SPECULATIVE options rather than empty arrays.
+Maintain a formal, clinical, and data-driven tone.
 Do not include markdown code blocks.";
 
 $apiKey = GEMINI_API_KEY;
@@ -64,7 +64,7 @@ $payload = [
     "contents" => [["parts" => [["text" => $prompt]]]],
     "generationConfig" => [
         "responseMimeType" => "application/json",
-        "temperature" => 0.4
+        "temperature" => 0.3
     ]
 ];
 
@@ -80,7 +80,6 @@ $result = json_decode($response, true);
 $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
 $aiData = json_decode($rawText, true);
 
-// Clean potential JSON wrappers if they exist
 if (is_string($aiData)) {
     $aiData = json_decode($aiData, true);
 }
@@ -89,6 +88,6 @@ echo json_encode([
     'success' => true,
     'gaps' => $aiData['context_gaps'] ?? [],
     'options' => $aiData['strategic_options'] ?? [],
-    'counterfactual' => $aiData['counterfactual_analysis'] ?? 'Limited data for counterfactual analysis.',
-    'benchmark' => $aiData['industry_benchmark'] ?? 'Aggregating sectoral data...'
+    'counterfactual' => $aiData['counterfactual_analysis'] ?? 'Insufficient data for risk-of-inaction analysis.',
+    'benchmark' => $aiData['industry_benchmark'] ?? 'Benchmarking sectoral data...'
 ]);
