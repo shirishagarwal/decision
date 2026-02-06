@@ -1,11 +1,8 @@
 <?php
 /**
  * File Path: api/ai-strategy.php
- * Description: The Core Intelligence Brain. Now supports:
- * - Risk Quantification (Dollar Values)
- * - Counterfactual Analysis
- * - Pattern Recognition (Real-world failures)
- * - Industry Benchmarking
+ * Description: The Core Intelligence Brain.
+ * Hardened to return structured data for high-fidelity UI features.
  */
 
 require_once __DIR__ . '/../config.php';
@@ -21,48 +18,44 @@ $activeConnectors = $input['active_connectors'] ?? [];
 $forceOptions = $input['force_options'] ?? false;
 
 if (empty($title)) {
-    jsonResponse(['success' => false, 'error' => 'Title is required.'], 400);
+    echo json_encode(['success' => false, 'error' => 'Title is required.']);
+    exit;
 }
 
 $pdo = getDbConnection();
-$orgId = $_SESSION['current_org_id'];
 
-// 1. Fetch Real-World Failure Patterns for Similarity Matching
-// We use the 'Strategic Scout' data to warn the user.
+// Fetch failure library for context
 $stmt = $pdo->prepare("SELECT company_name, decision_type, failure_reason FROM external_startup_failures LIMIT 5");
 $stmt->execute();
-$externalPatterns = $stmt->fetchAll();
+$externalPatterns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 2. The "Killer Feature" Prompt
 $prompt = "You are a 'Chief Strategy Officer' for an elite venture-backed organization.
 Title: '{$title}'
 Context: '{$problem}'
-Organization Data: " . json_encode($contextData) . "
-Active Data Streams: " . json_encode($activeConnectors) . "
-Historical Failure Library: " . json_encode($externalPatterns) . "
+Organization Data (provided by user): " . json_encode($contextData) . "
+Active Data Connectors: " . json_encode($activeConnectors) . "
+Real-World Failures to consider: " . json_encode($externalPatterns) . "
 
 TASK: 
 1. IDENTIFY 'CONTEXT_GAPS': What metrics are missing for a 95% confidence score?
 2. GENERATE 3 'STRATEGIC_OPTIONS'. For each option, include:
    - 'name' and 'description'
    - 'confidence_interval': (e.g., '82% - 88%')
-   - 'expected_value': Assign a hypothetical dollar impact based on context (e.g., '+$1.2M MRR opportunity')
+   - 'expected_value': A hypothetical dollar/impact value (e.g., '+$400k ARR')
    - 'risk_score': (1-10)
-   - 'pattern_match': Mention a real-world company (from the library or your knowledge) that used this logic.
-3. PROVIDE A 'COUNTERFACTUAL_ANALYSIS': If the user does NOTHING (Status Quo), what is the quantified decay of their current position over 12 months?
+   - 'pattern_match': Mention a real-world company/industry example.
+3. PROVIDE A 'COUNTERFACTUAL_ANALYSIS': If the user does NOTHING (Status Quo), what is the quantified decay of their current position?
 4. INDUSTRY BENCHMARK: 'X% of [Industry] companies in similar positions chose this path'.
 
-RETURN ONLY RAW JSON.";
+YOU MUST RETURN ONLY A RAW JSON OBJECT with keys: 'context_gaps', 'strategic_options', 'counterfactual_analysis', 'industry_benchmark'.
+Return only raw JSON text.";
 
 $apiKey = GEMINI_API_KEY;
 $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . $apiKey;
 
 $payload = [
     "contents" => [["parts" => [["text" => $prompt]]]],
-    "generationConfig" => [
-        "responseMimeType" => "application/json",
-        "temperature" => 0.2 // Lower temp for strategic precision
-    ]
+    "generationConfig" => ["responseMimeType" => "application/json"]
 ];
 
 $ch = curl_init($url);
