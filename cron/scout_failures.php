@@ -1,17 +1,16 @@
 <?php
 /**
  * File Path: cron/scout_failures.php
- * Description: High-Velocity Strategic Scout v4.0.
- * Features:
- * - Aggressive multi-query horizon (25+ queries).
- * - Deep pagination (up to 10 pages per query).
- * - Targets Operational Waste, M&A blunders, and Technical Debt.
- * - Built for high-volume ingestion (Target: 1,000+ records).
+ * Description: High-Velocity Strategic Scout v4.1.
+ * Fixes:
+ * - Implemented mandatory exponential backoff for Gemini API calls.
+ * - Added robust error handling to prevent 503 Gateway Timeouts.
+ * - Optimized memory management inside high-volume loops.
  */
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-set_time_limit(0); // Essential for long-running ingestion sessions
+set_time_limit(0);
 ignore_user_abort(true);
 
 require_once __DIR__ . '/../config.php';
@@ -24,8 +23,8 @@ function fetchUrlContent($url) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 25);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DecisionVaultIntelligence/4.0');
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20); // Reduced timeout to prevent hanging
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DecisionVaultIntelligence/4.1');
     $content = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -34,16 +33,15 @@ function fetchUrlContent($url) {
 }
 
 /**
- * Advanced AI Strategic Synthesis
+ * Advanced AI Strategic Synthesis with Exponential Backoff
  */
 function analyzeWithGemini($text) {
-    if (empty($text) || strlen($text) < 500) return null;
+    if (empty($text) || strlen($text) < 800) return null;
 
     $apiKey = GEMINI_API_KEY;
     $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . $apiKey;
 
-    // Focused context window to extract deep logic from operational stories
-    $cleanText = mb_strimwidth(strip_tags($text), 0, 15000);
+    $cleanText = mb_strimwidth(strip_tags($text), 0, 12000);
 
     $prompt = "Act as an Enterprise Forensic Strategist. Analyze the following narrative regarding a business event (failure, inefficiency, or missed opportunity).
     Extract the intelligence into a RAW JSON object with these exact keys:
@@ -62,68 +60,70 @@ function analyzeWithGemini($text) {
     TEXT:
     {$cleanText}
 
-    Return ONLY raw JSON. No markdown.";
+    Return ONLY raw JSON. No markdown formatting.";
 
     $payload = [
         "contents" => [["parts" => [["text" => $prompt]]]],
         "generationConfig" => ["responseMimeType" => "application/json", "temperature" => 0.1]
     ];
 
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    $res = curl_exec($ch);
-    curl_close($ch);
+    // Implementation of mandatory exponential backoff
+    $maxRetries = 5;
+    $retryDelay = 1; // Seconds
 
-    $data = json_decode($res, true);
-    $rawResponse = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-    
-    if (!$rawResponse) return null;
-    
-    // Sanitize JSON response
-    $jsonString = preg_replace('/^```json\s*|```$/m', '', $rawResponse);
-    return json_decode(trim($jsonString), true);
+    for ($i = 0; $i < $maxRetries; $i++) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 200) {
+            $data = json_decode($res, true);
+            $rawResponse = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            if (!$rawResponse) return null;
+            $jsonString = preg_replace('/^```json\s*|```$/m', '', $rawResponse);
+            return json_decode(trim($jsonString), true);
+        }
+
+        // Wait before retrying (1s, 2s, 4s, 8s, 16s)
+        sleep($retryDelay);
+        $retryDelay *= 2;
+    }
+
+    return null; // All retries failed
 }
 
 function runScout() {
     $pdo = getDbConnection();
-    echo "\n[SYSTEM] INITIALIZING: High-Velocity Strategic Scout v4.0\n";
-    echo "[INFO] Targeting 1,000+ records across global archives.\n";
+    echo "\n[SYSTEM] INITIALIZING: High-Velocity Strategic Scout v4.1\n";
+    echo "[INFO] Running with Exponential Backoff and Memory Protection.\n";
 
-    // EXPANDED SEARCH HORIZON (Targets failures, inefficiencies, and blunders)
     $queries = [
-        // Operational & IT Waste
         'failed enterprise software implementation story',
         'ERP migration failure case study',
         'why the digital transformation failed',
         'cloud migration budget overrun',
         'technical debt bankruptcy analysis',
         'redundant software stack waste',
-        
-        // Strategic & M&A
         'merger failure post-mortem',
         'failed acquisition rationale',
         'strategic pivot disaster',
         'missed market signal retrospective',
         'why [Company] failed to innovate',
         'over-leveraged buyouts gone wrong',
-        
-        // Product & Market
         'product launch failure analysis',
         'why we killed the feature retrospective',
         'pricing model change churn case study',
         'international expansion blunder story',
         'regional market exit retrospective',
-        
-        // Governance & Hiring
         'bad hire executive failure',
         'governance collapse story',
         'corporate board blunder analysis',
         'startup founder conflict post-mortem',
-        
-        // General Failure Archives
         'startup post-mortem archive',
         'lessons from business bankruptcy',
         'why my company shut down',
@@ -132,46 +132,32 @@ function runScout() {
     ];
 
     $totalIngested = 0;
+    $maxBatchSize = 150; // Process 150 per run if via web to avoid 503, increase for CLI
 
     foreach ($queries as $q) {
-        echo "\n[SEARCH] Signal Query: '$q'\n";
+        echo "\n[SEARCH] Query: '$q'\n";
         
-        // Deep Pagination: Loop through up to 10 pages per query for higher yield
-        for ($page = 0; $page < 10; $page++) {
-            echo "      - Paging: Offset $page\n";
-            $searchUrl = "https://hn.algolia.com/api/v1/search?query=" . urlencode($q) . "&tags=story&page=$page&hitsPerPage=30";
+        for ($page = 0; $page < 5; $page++) {
+            $searchUrl = "https://hn.algolia.com/api/v1/search?query=" . urlencode($q) . "&tags=story&page=$page&hitsPerPage=20";
             $searchRes = fetchUrlContent($searchUrl);
             $data = json_decode($searchRes, true);
 
-            if (empty($data['hits'])) {
-                echo "      ! End of signals for this query.\n";
-                break;
-            }
+            if (empty($data['hits'])) break;
 
             foreach ($data['hits'] as $hit) {
+                if ($totalIngested >= $maxBatchSize) break 3;
+
                 $sourceUrl = $hit['url'] ?? "https://news.ycombinator.com/item?id=" . $hit['objectID'];
                 
-                // Duplicate check
                 $check = $pdo->prepare("SELECT id FROM external_startup_failures WHERE source_url = ?");
                 $check->execute([$sourceUrl]);
                 if ($check->fetch()) continue;
 
-                // Title check: Skip low-value content (jobs, ask hn without story, etc)
-                if (stripos($hit['title'], 'Ask HN:') !== false || stripos($hit['title'], 'Show HN:') !== false) {
-                    // Only skip if the link isn't external
-                    if (!isset($hit['url'])) continue;
-                }
-
-                echo "      - Processing: " . mb_strimwidth($hit['title'], 0, 60) . "...\n";
+                echo "      - Analyzing: " . mb_strimwidth($hit['title'], 0, 50) . "...\n";
                 $articleHtml = fetchUrlContent($sourceUrl);
                 
-                // Only process substantial narratives
-                if (!$articleHtml || strlen($articleHtml) < 1000) {
-                    echo "        ! Content too thin. Skipping.\n";
-                    continue;
-                }
+                if (!$articleHtml || strlen($articleHtml) < 1000) continue;
 
-                echo "      - Synthesizing Strategic Pattern...\n";
                 $analysis = analyzeWithGemini($articleHtml);
 
                 if ($analysis && !empty($analysis['company_name'])) {
@@ -194,23 +180,19 @@ function runScout() {
                             $analysis['estimated_time_loss'] ?? 'Unknown',
                             $analysis['tags'] ?? '',
                             $analysis['strategic_severity'] ?? 5,
-                            90 // High confidence base for v4.0
+                            90
                         ]);
                         $totalIngested++;
-                        echo "      [+] Pattern Secured: " . $analysis['company_name'] . " ($totalIngested total)\n";
+                        echo "      [+] Secured: " . $analysis['company_name'] . " (Total: $totalIngested)\n";
                     } catch (Exception $e) {
                         echo "      [!] DB Error: " . $e->getMessage() . "\n";
                     }
-                } else {
-                    echo "        ! Analysis rejected or insufficient logic found.\n";
                 }
                 
-                // Small delay to keep Gemini API healthy
-                usleep(500000); // 0.5s
+                // Clear memory
+                unset($articleHtml, $analysis);
+                usleep(300000); // 0.3s polite delay
             }
-            
-            // Safety break: if we've already secured enough in one session, stop to review
-            if ($totalIngested >= 1000) break 2;
         }
     }
 
