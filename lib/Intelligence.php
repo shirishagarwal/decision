@@ -1,60 +1,56 @@
 <?php
 /**
  * File Path: lib/Intelligence.php
- * Description: The math behind the "Moat IQ." Calculates strategic accuracy and velocity.
+ * Description: Real calculation of Decision Maturity and Intelligence stats.
  */
 
 class Intelligence {
+    
     /**
-     * Calculates the Moat IQ score (0-200).
+     * Calculates the Decision Maturity Index (DMI) out of 200.
      * Logic:
-     * - Base Score: 20
-     * - Volume: +5 per decision (Max 50)
-     * - Rigor: +10 per AI Stress Test (Max 50)
-     * - Learning: +15 per Outcome Review (Max 80)
+     * - Base: 20 pts
+     * - Per Decision Logged: +10 pts (Max 80)
+     * - Per Connector Active: +15 pts (Max 60)
+     * - Per Outcome Analysis: +20 pts (Max 40)
      */
-    public static function calculateIQ($orgId) {
+    public static function calculateDMI($orgId) {
         $pdo = getDbConnection();
         $score = 20;
 
-        // 1. Volume Points
+        // Count Decisions
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ?");
         $stmt->execute([$orgId]);
-        $decisionCount = $stmt->fetchColumn();
-        $score += min(($decisionCount * 5), 50);
+        $decisionsCount = (int)$stmt->fetchColumn();
+        $score += min($decisionsCount * 10, 80);
 
-        // 2. Rigor (Stress Tests)
-        $stmt = $pdo->prepare("
-            SELECT COUNT(ds.id) FROM decision_simulations ds
-            JOIN decisions d ON ds.decision_id = d.id
-            WHERE d.organization_id = ?
-        ");
+        // Count Active Connectors
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM data_connectors WHERE organization_id = ? AND status = 'active'");
         $stmt->execute([$orgId]);
-        $simCount = $stmt->fetchColumn();
-        $score += min(($simCount * 10), 50);
+        $connectorsCount = (int)$stmt->fetchColumn();
+        $score += min($connectorsCount * 15, 60);
 
-        // 3. Learning Loop (Closed Outcomes)
-        $stmt = $pdo->prepare("SELECT review_rating FROM decisions WHERE organization_id = ? AND status = 'Implemented'");
+        // Count Decisions with Outcomes (Learning loops)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM decisions WHERE organization_id = ? AND status = 'Closed'");
         $stmt->execute([$orgId]);
-        $reviews = $stmt->fetchAll();
-        
-        foreach ($reviews as $r) {
-            $score += 15;
-            // Bonus for high accuracy (as expected) or radical learning (much worse)
-            if ($r['review_rating'] === 'as_expected' || $r['review_rating'] === 'much_better') $score += 5;
-        }
+        $outcomesCount = (int)$stmt->fetchColumn();
+        $score += min($outcomesCount * 20, 40);
 
-        return min($score, 200);
+        return $score;
     }
 
     /**
-     * Returns a human-readable percentile based on the score.
+     * Gets the total count of 'Scouted' intelligence patterns.
      */
-    public static function getPercentile($iq) {
-        if ($iq >= 180) return "Top 1%";
-        if ($iq >= 150) return "Top 5%";
-        if ($iq >= 120) return "Top 12%";
-        if ($iq >= 80) return "Top 25%";
-        return "Baseline Established";
+    public static function getScoutedPatternCount() {
+        $pdo = getDbConnection();
+        return (int)$pdo->query("SELECT COUNT(*) FROM external_startup_failures")->fetchColumn();
+    }
+
+    public static function getSectorRanking($score) {
+        if ($score > 160) return "Top 2%";
+        if ($score > 120) return "Top 12%";
+        if ($score > 80) return "Average";
+        return "Initial";
     }
 }
