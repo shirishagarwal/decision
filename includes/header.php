@@ -1,7 +1,7 @@
 <?php
 /**
  * File Path: includes/header.php
- * Updated: Verified all links map to correct files.
+ * Updated: Added "Knowledge Hub" to the global navigation for RAG data management.
  */
 require_once __DIR__ . '/../config.php';
 $user = getCurrentUser();
@@ -15,7 +15,7 @@ if ($orgId) {
     $orgName = $stmt->fetchColumn() ?: "Workspace";
 }
 ?>
-
+<!-- Global Favicon referring to the file in the root -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
 <nav class="bg-white border-b border-gray-200 p-5 sticky top-0 z-50">
@@ -36,6 +36,7 @@ if ($orgId) {
         <div class="flex items-center gap-6">
             <div class="hidden lg:flex items-center gap-6 mr-4">
                 <a href="/dashboard.php" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition">Vault</a>
+                <a href="/organization-knowledge.php" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition">Knowledge Hub</a>
                 <a href="/marketplace.php" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition">Marketplace</a>
                 <a href="/organization-settings.php" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition">Settings</a>
             </div>
